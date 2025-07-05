@@ -20,19 +20,13 @@ export default function HomePage() {
             terbaik.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/alternatives"
-              className="btn-primary flex flex-col justify-center items-center text-center"
-            >
+            <Link href="/alternatives" className="btn-primary flex justify-center text-center">
               <Home className="w-5 h-5 mr-2" />
               <p>Mulai Input Data</p>
             </Link>
-            <Link
-              href="/calculation"
-              className="btn-secondary  flex flex-col justify-center items-center text-center"
-            >
+            <Link href="/calculation" className="btn-secondary">
               <Calculator className="w-5 h-5 mr-2" />
-              <p>Lihat Perhitungan</p>
+              Lihat Perhitungan
             </Link>
           </div>
         </div>

@@ -16,8 +16,33 @@
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #6366f1 100%);
+  font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  min-height: 100vh;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-[#140c3e] backdrop-blur-lg border border-white/20 shadow-xl;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 text-white hover:bg-white/20 font-medium px-6 py-3 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  .btn-danger {
+    @apply bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg;
+  }
 }
 
 @layer utilities {

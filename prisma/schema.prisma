@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Alternative {
+  id            Int      @id @default(autoincrement())
+  namaPerumahan String
+  lokasi        String
+  harga         Float    // C1 (cost)
+  jarak         Float    // C2 (cost) - dalam km
+  fasilitas     Int      // C3 (benefit) - skor 1-10
+  transportasi  Int      // C4 (benefit) - skor 1-10
+  createdAt     DateTime @default(now())
+  
+  @@map("alternatives")
+}
+
+model Criteria {
+  id    Int           @id @default(autoincrement())
+  nama  String
+  bobot Float         // dalam persen (0-100)
+  tipe  CriteriaType  // benefit atau cost
+  
+  @@map("criterias")
+}
+
+model History {
+  id                Int      @id @default(autoincrement())
+  tanggal           DateTime @default(now())
+  hasil             Json     // JSON hasil peringkat dan normalisasi
+  alternatifTerbaik String   // nama perumahan terbaik
+  
+  @@map("history")
+}
+
+enum CriteriaType {
+  benefit
+  cost
+}
