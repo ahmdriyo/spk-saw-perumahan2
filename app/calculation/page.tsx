@@ -460,15 +460,19 @@ export default function CalculationPage() {
           <div className="glass-card p-6 rounded-xl">
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a href="/history" className="btn-secondary">
-                <TrendingUp className="w-5 h-5 mr-2" />
-                Lihat Riwayat Perhitungan
+                <div className="flex flex-col items-center justify-center">
+                  <TrendingUp className="w-5 h-5 mr-2" />
+                  Lihat Riwayat Perhitungan
+                </div>
               </a>
               <button onClick={handleCalculate} className="btn-primary">
-                <Play className="w-5 h-5 mr-2" />
-                Hitung Ulang
+                <div className="flex flex-col items-center justify-center">
+                  <Play className="w-5 h-5 mr-2" />
+                  Hitung Ulang
+                </div>
               </button>
             </div>
-            
+
             {/* Report Buttons */}
             {result && historyId && (
               <div className="mt-6 pt-6 border-t border-white/10">
@@ -481,7 +485,7 @@ export default function CalculationPage() {
                       normalizedAlternatives: result.normalizedAlternatives,
                       criterias: result.criterias,
                       bestAlternative: result.bestAlternative,
-                      tanggal: new Date()
+                      tanggal: new Date(),
                     }}
                   />
                 </div>

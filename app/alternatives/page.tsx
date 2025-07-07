@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, MapPin, Building } from "lucide-react";
+import { Plus, Trash2, MapPin, Building, Upload } from "lucide-react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { formatCurrency } from "@/lib/saw-calculator";
+import FileUpload from "@/components/FileUpload";
+import { AlternativePrintButton } from "@/components/PrintButtons";
 
 interface Alternative {
   id: number;
@@ -31,6 +33,7 @@ export default function AlternativesPage() {
   const [alternatives, setAlternatives] = useState<Alternative[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
 
   const {
     register,
@@ -121,12 +124,26 @@ export default function AlternativesPage() {
               Tambahkan data perumahan dengan kriteria yang akan dievaluasi
             </p>
           </div>
-          <button onClick={() => setShowForm(true)} className="btn-primary">
-            <div className="flex flex-col items-center justify-center">
-              <Plus className="w-5 h-5 mr-2" />
-              <p>Tambah Alternatif</p>
-            </div>
-          </button>
+          <div className="flex flex-wrap gap-3">
+            {alternatives.length > 0 && (
+              <AlternativePrintButton alternatives={alternatives} />
+            )}
+            <button
+              onClick={() => setShowUpload(true)}
+              className="btn-secondary"
+            >
+              <div className="flex items-center">
+                <Upload className="w-5 h-5 mr-2" />
+                <span>Upload File</span>
+              </div>
+            </button>
+            <button onClick={() => setShowForm(true)} className="btn-primary">
+              <div className="flex items-center">
+                <Plus className="w-5 h-5 mr-2" />
+                <span>Tambah Manual</span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -290,6 +307,32 @@ export default function AlternativesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      {showUpload && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                Upload File Data Perumahan
+              </h2>
+              <button
+                onClick={() => setShowUpload(false)}
+                className="btn-secondary"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <FileUpload
+              onUploadComplete={() => {
+                fetchAlternatives();
+                setShowUpload(false);
+              }}
+            />
           </div>
         </div>
       )}

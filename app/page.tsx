@@ -107,7 +107,7 @@ export default function HomePage() {
               Input Data
             </h3>
             <p className="text-white/80 text-sm">
-              Masukkan data perumahan dengan kriteria: harga, jarak, fasilitas,
+              Masukkan data perumahan secara menual atau upload file dengan kriteria: harga, jarak, fasilitas,
               dan transportasi
             </p>
           </div>

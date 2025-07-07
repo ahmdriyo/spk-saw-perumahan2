@@ -180,9 +180,33 @@ export class ReportGenerator {
   private addConclusion() {
     const finalY = (this.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
     
+    // Cek apakah perlu halaman baru
+    const pageHeight = this.doc.internal.pageSize.height;
+    if (finalY > pageHeight - 80) {
+      this.doc.addPage();
+      this.addNewPageHeader();
+      this.addConclusionContent(30);
+    } else {
+      this.addConclusionContent(finalY);
+    }
+  }
+
+  private addNewPageHeader() {
+    this.doc.setFontSize(16);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(0, 0, 0);
+    this.doc.text('LAPORAN HASIL ANALISIS SPK (Lanjutan)', 105, 20, { align: 'center' });
+    
+    // Garis pemisah
+    this.doc.setLineWidth(0.5);
+    this.doc.line(20, 25, 190, 25);
+  }
+
+  private addConclusionContent(startY: number) {
     this.doc.setFontSize(14);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('5. KESIMPULAN', 20, finalY);
+    this.doc.setTextColor(0, 0, 0);
+    this.doc.text('5. KESIMPULAN', 20, startY);
 
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'normal');
@@ -199,42 +223,83 @@ export class ReportGenerator {
       `ditetapkan dengan mempertimbangkan bobot masing-masing kriteria.`
     ];
 
-    let yPosition = finalY + 8;
+    let yPosition = startY + 8;
     conclusionText.forEach(line => {
       this.doc.text(line, 20, yPosition);
       yPosition += 6;
     });
 
     // Box untuk hasil terbaik
+    const boxY = startY + 20;
     this.doc.setDrawColor(59, 130, 246);
     this.doc.setFillColor(239, 246, 255);
-    this.doc.rect(20, finalY + 20, 170, 25, 'FD');
+    this.doc.rect(20, boxY, 170, 25, 'FD');
     
     this.doc.setFont('helvetica', 'bold');
     this.doc.setTextColor(59, 130, 246);
-    this.doc.text('REKOMENDASI PERUMAHAN TERBAIK:', 25, finalY + 30);
-    this.doc.text(this.data.bestAlternative.namaPerumahan, 25, finalY + 38);
+    this.doc.text('REKOMENDASI PERUMAHAN TERBAIK:', 25, boxY + 10);
+    this.doc.text(this.data.bestAlternative.namaPerumahan, 25, boxY + 18);
+    
+    // Reset color untuk footer
+    this.doc.setTextColor(0, 0, 0);
+    this.doc.setFont('helvetica', 'normal');
   }
 
   private addFooter() {
-    this.doc.setFontSize(10);
-    this.doc.setFont('helvetica', 'italic');
-    this.doc.setTextColor(128, 128, 128);
+    const pageCount = this.doc.internal.getNumberOfPages();
+    const pageHeight = this.doc.internal.pageSize.height;
+    
+    // Tambahkan footer untuk setiap halaman
+    for (let i = 1; i <= pageCount; i++) {
+      this.doc.setPage(i);
+      
+      // Save current settings
+      const currentFontSize = this.doc.internal.getFontSize();
+      const currentFont = this.doc.internal.getFont();
+      
+      this.doc.setFontSize(10);
+      this.doc.setFont('helvetica', 'italic');
+      this.doc.setTextColor(128, 128, 128);
+      
+      this.doc.text('Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan', 105, pageHeight - 20, { align: 'center' });
+      this.doc.text('SPK Pemilihan Perumahan dengan Metode SAW', 105, pageHeight - 15, { align: 'center' });
+      this.doc.text(`Halaman ${i} dari ${pageCount}`, 105, pageHeight - 10, { align: 'center' });
+      
+      // Restore settings
+      this.doc.setFontSize(currentFontSize);
+      this.doc.setFont(currentFont.fontName, currentFont.fontStyle);
+      this.doc.setTextColor(0, 0, 0);
+    }
   }
 
   public generatePDF(): jsPDF {
-    // Reset text color untuk memastikan warna default
-    this.doc.setTextColor(0, 0, 0);
-    
-    this.addHeader();
-    this.addCriteriaTable();
-    this.addAlternativesTable();
-    this.addNormalizationTable();
-    this.addRankingTable();
-    this.addConclusion();
-    this.addFooter();
+    try {
+      // Reset text color untuk memastikan warna default
+      this.doc.setTextColor(0, 0, 0);
+      this.doc.setFont('helvetica', 'normal');
+      
+      this.addHeader();
+      this.addCriteriaTable();
+      this.addAlternativesTable();
+      this.addNormalizationTable();
+      this.addRankingTable();
+      this.addConclusion();
+      this.addFooter();
 
-    return this.doc;
+      return this.doc;
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Return a minimal PDF with error message
+      this.doc = new jsPDF();
+      this.doc.setFontSize(16);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.text('Error Generating Report', 105, 100, { align: 'center' });
+      this.doc.setFontSize(12);
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.text('Terjadi kesalahan saat membuat laporan PDF.', 105, 120, { align: 'center' });
+      this.doc.text('Silakan coba lagi atau hubungi administrator.', 105, 135, { align: 'center' });
+      return this.doc;
+    }
   }
 
   public downloadPDF(filename?: string): void {

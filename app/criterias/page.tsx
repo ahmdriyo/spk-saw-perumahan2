@@ -5,6 +5,7 @@ import { Settings, Save, Info } from "lucide-react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import axios from "axios";
+import { CriteriaPrintButton } from "@/components/PrintButtons";
 
 interface Criteria {
   id: number;
@@ -86,17 +87,24 @@ export default function CriteriasPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="glass-card p-6 rounded-xl">
-        <div className="flex items-center gap-3 mb-4">
-          <Settings className="w-8 h-8 text-white" />
-          <div>
-            <h1 className="text-3xl font-bold text-white">
-              Pengaturan Bobot Kriteria
-            </h1>
-            <p className="text-white/80">
-              Sesuaikan bobot untuk setiap kriteria. Total bobot harus tepat
-              100%.
-            </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Settings className="w-8 h-8 text-white" />
+            <div>
+              <h1 className="text-3xl font-bold text-white">
+                Pengaturan Bobot Kriteria
+              </h1>
+              <p className="text-white/80">
+                Sesuaikan bobot untuk setiap kriteria. Total bobot harus tepat
+                100%.
+              </p>
+            </div>
           </div>
+          {criterias.length > 0 && (
+            <div className="flex gap-3">
+              <CriteriaPrintButton criterias={criterias} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -276,59 +284,6 @@ export default function CriteriasPage() {
           )}
         </form>
       </div>
-
-      {/* Quick Presets */}
-      <div className="glass-card p-6 rounded-xl">
-        <h3 className="text-lg font-semibold text-white mb-4">
-          Preset Bobot Cepat
-        </h3>
-        <div className="grid md:grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setValue("criterias.0.bobot", 25);
-              setValue("criterias.1.bobot", 25);
-              setValue("criterias.2.bobot", 25);
-              setValue("criterias.3.bobot", 25);
-            }}
-            className="p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 text-left transition-colors"
-          >
-            <div className="font-medium text-white">Bobot Seimbang</div>
-            <div className="text-sm text-white/60">
-              25% untuk setiap kriteria
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setValue("criterias.0.bobot", 40);
-              setValue("criterias.1.bobot", 20);
-              setValue("criterias.2.bobot", 20);
-              setValue("criterias.3.bobot", 20);
-            }}
-            className="p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 text-left transition-colors"
-          >
-            <div className="font-medium text-white">Prioritas Harga</div>
-            <div className="text-sm text-white/60">Harga 40%, lainnya 20%</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setValue("criterias.0.bobot", 20);
-              setValue("criterias.1.bobot", 40);
-              setValue("criterias.2.bobot", 20);
-              setValue("criterias.3.bobot", 20);
-            }}
-            className="p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 text-left transition-colors"
-          >
-            <div className="font-medium text-white">Prioritas Lokasi</div>
-            <div className="text-sm text-white/60">Jarak 40%, lainnya 20%</div>
-          </button>
-        </div>
-      </div>
-
       {/* Next Step */}
       {Math.abs(totalBobot - 100) < 0.01 && (
         <div className="glass-card p-6 rounded-xl">
