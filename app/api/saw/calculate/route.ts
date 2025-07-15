@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const historyRecord = await prisma.history.create({
       data: {
         hasil: JSON.parse(JSON.stringify(result)), // Convert to plain object for JSON storage
-        alternatifTerbaik: result.bestAlternative.namaPerumahan
+        alternatifTerbaik: result.bestAlternative.nama
       }
     });
     

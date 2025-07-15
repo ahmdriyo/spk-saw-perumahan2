@@ -4,17 +4,27 @@ import { useState, useEffect } from "react";
 import { Calculator, Play, Trophy, TrendingUp, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import axios from "axios";
-import { SAWResult, formatNumber, formatCurrency } from "@/lib/saw-calculator";
+import { SAWResult, formatNumber, NormalizedAlternative } from "@/lib/saw-calculator";
 import ReportButtons from "@/components/ReportButtons";
+
+interface AlternativeValue {
+  id: number;
+  nilai: number;
+  criteriaId: number;
+  criteria: {
+    id: number;
+    nama: string;
+    bobot: number;
+    tipe: "benefit" | "cost";
+  };
+}
 
 interface Alternative {
   id: number;
-  namaPerumahan: string;
+  nama: string;
   lokasi: string;
-  harga: number;
-  jarak: number;
-  fasilitas: number;
-  transportasi: number;
+  gambar?: string;
+  values: AlternativeValue[];
 }
 
 interface Criteria {
@@ -32,6 +42,13 @@ export default function CalculationPage() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+
+  // Helper function untuk mendapatkan nilai normalisasi berdasarkan nama kriteria
+  const getNormalizedValue = (alt: NormalizedAlternative, criteriaName: string): number => {
+    const criteria = criterias.find(c => c.nama === criteriaName);
+    if (!criteria) return 0;
+    return alt.normalizedValues[criteria.id] || 0;
+  };
 
   // Fetch data
   const fetchData = async () => {
@@ -240,13 +257,10 @@ export default function CalculationPage() {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-2">
-                    🏆 {result.bestAlternative.namaPerumahan}
+                    🏆 {result.bestAlternative.nama}
                   </h3>
                   <p className="text-white/80 mb-1">
                     📍 {result.bestAlternative.lokasi}
-                  </p>
-                  <p className="text-white/80">
-                    💰 {formatCurrency(result.bestAlternative.harga)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -317,7 +331,7 @@ export default function CalculationPage() {
                         </div>
                       </td>
                       <td className="py-4 px-2 text-white font-medium">
-                        {alt.namaPerumahan}
+                        {alt.nama}
                       </td>
                       <td className="py-4 px-2 text-white/80">{alt.lokasi}</td>
                       <td className="py-4 px-2">
@@ -363,43 +377,15 @@ export default function CalculationPage() {
                       <th className="text-left text-white font-semibold py-3 px-2">
                         Perumahan
                       </th>
-                      <th className="text-left text-white font-semibold py-3 px-2">
-                        Harga
-                        <br />
-                        <span className="text-xs font-normal text-white/60">
-                          (w: {criterias.find((c) => c.nama === "Harga")?.bobot}
-                          %)
-                        </span>
-                      </th>
-                      <th className="text-left text-white font-semibold py-3 px-2">
-                        Jarak
-                        <br />
-                        <span className="text-xs font-normal text-white/60">
-                          (w: {criterias.find((c) => c.nama === "Jarak")?.bobot}
-                          %)
-                        </span>
-                      </th>
-                      <th className="text-left text-white font-semibold py-3 px-2">
-                        Fasilitas
-                        <br />
-                        <span className="text-xs font-normal text-white/60">
-                          (w:{" "}
-                          {criterias.find((c) => c.nama === "Fasilitas")?.bobot}
-                          %)
-                        </span>
-                      </th>
-                      <th className="text-left text-white font-semibold py-3 px-2">
-                        Transportasi
-                        <br />
-                        <span className="text-xs font-normal text-white/60">
-                          (w:{" "}
-                          {
-                            criterias.find((c) => c.nama === "Transportasi")
-                              ?.bobot
-                          }
-                          %)
-                        </span>
-                      </th>
+                      {criterias.map((criteria) => (
+                        <th key={criteria.id} className="text-left text-white font-semibold py-3 px-2">
+                          {criteria.nama}
+                          <br />
+                          <span className="text-xs font-normal text-white/60">
+                            (w: {criteria.bobot}%)
+                          </span>
+                        </th>
+                      ))}
                       <th className="text-left text-white font-semibold py-3 px-2">
                         Skor Akhir
                       </th>
@@ -409,20 +395,13 @@ export default function CalculationPage() {
                     {result.normalizedAlternatives.map((alt) => (
                       <tr key={alt.id} className="border-b border-white/10">
                         <td className="py-3 px-2 text-white font-medium">
-                          {alt.namaPerumahan}
+                          {alt.nama}
                         </td>
-                        <td className="py-3 px-2 text-white/80">
-                          {formatNumber(alt.normalizedHarga)}
-                        </td>
-                        <td className="py-3 px-2 text-white/80">
-                          {formatNumber(alt.normalizedJarak)}
-                        </td>
-                        <td className="py-3 px-2 text-white/80">
-                          {formatNumber(alt.normalizedFasilitas)}
-                        </td>
-                        <td className="py-3 px-2 text-white/80">
-                          {formatNumber(alt.normalizedTransportasi)}
-                        </td>
+                        {criterias.map((criteria) => (
+                          <td key={criteria.id} className="py-3 px-2 text-white/80">
+                            {formatNumber(getNormalizedValue(alt, criteria.nama))}
+                          </td>
+                        ))}
                         <td className="py-3 px-2 text-blue-300 font-bold">
                           {formatNumber(alt.finalScore)}
                         </td>

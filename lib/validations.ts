@@ -27,12 +27,19 @@ export const criteriaSchema = z.object({
 export const sawCalculationSchema = z.object({
   alternatives: z.array(z.object({
     id: z.number(),
-    namaPerumahan: z.string(),
+    nama: z.string(),
     lokasi: z.string(),
-    harga: z.number(),
-    jarak: z.number(),
-    fasilitas: z.number(),
-    transportasi: z.number(),
+    values: z.array(z.object({
+      id: z.number(),
+      nilai: z.number(),
+      criteriaId: z.number(),
+      criteria: z.object({
+        id: z.number(),
+        nama: z.string(),
+        bobot: z.number(),
+        tipe: z.enum(['benefit', 'cost'])
+      })
+    }))
   })),
   criterias: z.array(z.object({
     id: z.number(),

@@ -1,11 +1,21 @@
+export interface AlternativeValue {
+  id: number;
+  nilai: number;
+  criteriaId: number;
+  criteria: {
+    id: number;
+    nama: string;
+    bobot: number;
+    tipe: 'benefit' | 'cost';
+  };
+}
+
 export interface Alternative {
   id: number;
-  namaPerumahan: string;
+  nama: string;
   lokasi: string;
-  harga: number;
-  jarak: number;
-  fasilitas: number;
-  transportasi: number;
+  gambar?: string;
+  values: AlternativeValue[];
 }
 
 export interface Criteria {
@@ -15,11 +25,12 @@ export interface Criteria {
   tipe: 'benefit' | 'cost';
 }
 
-export interface NormalizedAlternative extends Alternative {
-  normalizedHarga: number;
-  normalizedJarak: number;
-  normalizedFasilitas: number;
-  normalizedTransportasi: number;
+export interface NormalizedAlternative {
+  id: number;
+  nama: string;
+  lokasi: string;
+  gambar?: string;
+  normalizedValues: { [criteriaId: number]: number };
   finalScore: number;
   ranking: number;
 }
@@ -51,48 +62,51 @@ export class SAWCalculator {
 
   // Hitung normalisasi untuk semua alternatif
   private normalizeAlternatives(): NormalizedAlternative[] {
-    const hargaValues = this.alternatives.map(alt => alt.harga);
-    const jarakValues = this.alternatives.map(alt => alt.jarak);
-    const fasilitasValues = this.alternatives.map(alt => alt.fasilitas);
-    const transportasiValues = this.alternatives.map(alt => alt.transportasi);
+    const normalizedAlternatives = this.alternatives.map(alt => {
+      const normalizedValues: { [criteriaId: number]: number } = {};
+      let finalScore = 0;
 
-    const minHarga = Math.min(...hargaValues);
-    const minJarak = Math.min(...jarakValues);
-    const maxFasilitas = Math.max(...fasilitasValues);
-    const maxTransportasi = Math.max(...transportasiValues);
+      // Normalisasi setiap kriteria
+      this.criterias.forEach(criteria => {
+        const criteriaValues = this.alternatives.map(a => {
+          const value = a.values.find(v => v.criteriaId === criteria.id);
+          return value ? value.nilai : 0;
+        });
 
-    return this.alternatives.map(alt => ({
-      ...alt,
-      normalizedHarga: this.normalizeCost(alt.harga, minHarga),
-      normalizedJarak: this.normalizeCost(alt.jarak, minJarak),
-      normalizedFasilitas: this.normalizeBenefit(alt.fasilitas, maxFasilitas),
-      normalizedTransportasi: this.normalizeBenefit(alt.transportasi, maxTransportasi),
-      finalScore: 0,
-      ranking: 0
-    }));
+        const currentValue = alt.values.find(v => v.criteriaId === criteria.id);
+        const currentNilai = currentValue ? currentValue.nilai : 0;
+
+        let normalizedValue = 0;
+        if (criteria.tipe === 'benefit') {
+          const maxValue = Math.max(...criteriaValues);
+          normalizedValue = maxValue > 0 ? this.normalizeBenefit(currentNilai, maxValue) : 0;
+        } else {
+          const minValue = Math.min(...criteriaValues);
+          normalizedValue = minValue > 0 ? this.normalizeCost(currentNilai, minValue) : 0;
+        }
+
+        normalizedValues[criteria.id] = normalizedValue;
+        finalScore += normalizedValue * (criteria.bobot / 100);
+      });
+
+      return {
+        id: alt.id,
+        nama: alt.nama,
+        lokasi: alt.lokasi,
+        gambar: alt.gambar,
+        normalizedValues,
+        finalScore,
+        ranking: 0
+      };
+    });
+
+    return normalizedAlternatives;
   }
 
   // Hitung skor akhir dengan metode SAW
   private calculateFinalScores(normalizedAlts: NormalizedAlternative[]): NormalizedAlternative[] {
-    const weightHarga = this.criterias.find(c => c.nama === 'Harga')?.bobot || 25;
-    const weightJarak = this.criterias.find(c => c.nama === 'Jarak')?.bobot || 25;
-    const weightFasilitas = this.criterias.find(c => c.nama === 'Fasilitas')?.bobot || 25;
-    const weightTransportasi = this.criterias.find(c => c.nama === 'Transportasi')?.bobot || 25;
-
-    // Konversi bobot dari persen ke desimal
-    const wHarga = weightHarga / 100;
-    const wJarak = weightJarak / 100;
-    const wFasilitas = weightFasilitas / 100;
-    const wTransportasi = weightTransportasi / 100;
-
-    return normalizedAlts.map(alt => ({
-      ...alt,
-      finalScore: 
-        (alt.normalizedHarga * wHarga) +
-        (alt.normalizedJarak * wJarak) +
-        (alt.normalizedFasilitas * wFasilitas) +
-        (alt.normalizedTransportasi * wTransportasi)
-    }));
+    // Skor sudah dihitung di normalizeAlternatives
+    return normalizedAlts;
   }
 
   // Assign ranking berdasarkan skor akhir
