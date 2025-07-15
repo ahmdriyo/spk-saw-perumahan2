@@ -10,6 +10,7 @@ export interface Alternative {
   jarak: number;
   fasilitas: number;
   transportasi: number;
+  gambar?: string;
   createdAt?: string;
 }
 

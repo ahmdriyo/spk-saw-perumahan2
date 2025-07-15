@@ -245,32 +245,32 @@ export class ReportGenerator {
     this.doc.setFont('helvetica', 'normal');
   }
 
-  private addFooter() {
-    const pageCount = this.doc.internal.getNumberOfPages();
-    const pageHeight = this.doc.internal.pageSize.height;
+  // private addFooter() {
+  //   const pageCount = this.doc.internal.getNumberOfPages();
+  //   const pageHeight = this.doc.internal.pageSize.height;
     
-    // Tambahkan footer untuk setiap halaman
-    for (let i = 1; i <= pageCount; i++) {
-      this.doc.setPage(i);
+  //   // Tambahkan footer untuk setiap halaman
+  //   for (let i = 1; i <= pageCount; i++) {
+  //     this.doc.setPage(i);
       
-      // Save current settings
-      const currentFontSize = this.doc.internal.getFontSize();
-      const currentFont = this.doc.internal.getFont();
+  //     // Save current settings
+  //     const currentFontSize = this.doc.internal.getFontSize();
+  //     const currentFont = this.doc.internal.getFont();
       
-      this.doc.setFontSize(10);
-      this.doc.setFont('helvetica', 'italic');
-      this.doc.setTextColor(128, 128, 128);
+  //     this.doc.setFontSize(10);
+  //     this.doc.setFont('helvetica', 'italic');
+  //     this.doc.setTextColor(128, 128, 128);
       
-      this.doc.text('Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan', 105, pageHeight - 20, { align: 'center' });
-      this.doc.text('SPK Pemilihan Perumahan dengan Metode SAW', 105, pageHeight - 15, { align: 'center' });
-      this.doc.text(`Halaman ${i} dari ${pageCount}`, 105, pageHeight - 10, { align: 'center' });
+  //     // this.doc.text('Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan', 105, pageHeight - 20, { align: 'center' });
+  //     // this.doc.text('SPK Pemilihan Perumahan dengan Metode SAW', 105, pageHeight - 15, { align: 'center' });
+  //     // this.doc.text(`Halaman ${i} dari ${pageCount}`, 105, pageHeight - 10, { align: 'center' });
       
-      // Restore settings
-      this.doc.setFontSize(currentFontSize);
-      this.doc.setFont(currentFont.fontName, currentFont.fontStyle);
-      this.doc.setTextColor(0, 0, 0);
-    }
-  }
+  //     // Restore settings
+  //     this.doc.setFontSize(currentFontSize);
+  //     this.doc.setFont(currentFont.fontName, currentFont.fontStyle);
+  //     this.doc.setTextColor(0, 0, 0);
+  //   }
+  // }
 
   public generatePDF(): jsPDF {
     try {
@@ -284,7 +284,7 @@ export class ReportGenerator {
       this.addNormalizationTable();
       this.addRankingTable();
       this.addConclusion();
-      this.addFooter();
+      // this.addFooter();
 
       return this.doc;
     } catch (error) {

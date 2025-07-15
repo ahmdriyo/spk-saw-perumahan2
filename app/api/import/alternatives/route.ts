@@ -11,6 +11,7 @@ const alternativeFromFileSchema = z.object({
   jarak: z.number().positive('Jarak harus lebih dari 0'),
   fasilitas: z.number().int().min(1, 'Skor fasilitas minimal 1').max(10, 'Skor fasilitas maksimal 10'),
   transportasi: z.number().int().min(1, 'Skor transportasi minimal 1').max(10, 'Skor transportasi maksimal 10'),
+  gambar: z.string().optional().nullable(),
 });
 
 function parseExcelData(buffer: Buffer): Record<string, unknown>[] {
@@ -68,6 +69,9 @@ function normalizeData(rawData: Record<string, unknown>[]): Record<string, unkno
         normalized.fasilitas = parseInt(String(item[key]).replace(/[^\d]/g, ''));
       } else if (lowerKey.includes('transportasi') || lowerKey.includes('transport')) {
         normalized.transportasi = parseInt(String(item[key]).replace(/[^\d]/g, ''));
+      } else if (lowerKey.includes('gambar') || lowerKey.includes('image') || lowerKey.includes('foto') || lowerKey.includes('photo')) {
+        const imageValue = String(item[key]).trim();
+        normalized.gambar = imageValue && imageValue !== '' ? imageValue : null;
       }
     });
     

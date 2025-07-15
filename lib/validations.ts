@@ -7,6 +7,7 @@ export const alternativeSchema = z.object({
   jarak: z.number().positive('Jarak harus lebih dari 0'),
   fasilitas: z.number().int().min(1, 'Skor fasilitas minimal 1').max(10, 'Skor fasilitas maksimal 10'),
   transportasi: z.number().int().min(1, 'Skor transportasi minimal 1').max(10, 'Skor transportasi maksimal 10'),
+  gambar: z.string().optional().nullable(),
 });
 
 export const criteriaSchema = z.object({

@@ -111,24 +111,27 @@ export default function FileUpload({ onUploadComplete, className = '' }: FileUpl
     fileInputRef.current?.click();
   };
 
-  const downloadTemplate = () => {
-    // Create a sample template CSV
-    const template = `Nama Perumahan,Lokasi,Harga,Jarak,Fasilitas,Transportasi
-Perumahan Indah,Jakarta Selatan,500000000,5.2,8,9
-Green Valley,Bogor,350000000,15.7,7,6
-Modern City,Tangerang,750000000,8.3,9,8`;
-    
-    const blob = new Blob([template], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template_data_perumahan.csv';
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    toast.success('Template berhasil didownload');
+  const downloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/template');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template-data-perumahan.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Template Excel berhasil didownload');
+      } else {
+        throw new Error('Gagal mendownload template');
+      }
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast.error('Gagal mendownload template');
+    }
   };
 
   return (
@@ -138,8 +141,8 @@ Modern City,Tangerang,750000000,8.3,9,8`;
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-blue-600" />
           <div>
-            <h4 className="font-medium text-blue-900">Template File</h4>
-            <p className="text-sm text-blue-700">Download template untuk format yang benar</p>
+            <h4 className="font-medium text-blue-900">Template File Excel</h4>
+            <p className="text-sm text-blue-700">Download template dengan contoh data dan kolom gambar</p>
           </div>
         </div>
         <button
@@ -221,6 +224,7 @@ Modern City,Tangerang,750000000,8.3,9,8`;
             <li>• Jarak (dalam km)</li>
             <li>• Fasilitas (skor 1-10)</li>
             <li>• Transportasi (skor 1-10)</li>
+            <li>• Gambar (URL, opsional)</li>
           </ul>
         </div>
       </div>

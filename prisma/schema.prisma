@@ -18,6 +18,7 @@ model Alternative {
   jarak         Float    // C2 (cost) - dalam km
   fasilitas     Int      // C3 (benefit) - skor 1-10
   transportasi  Int      // C4 (benefit) - skor 1-10
+  gambar        String?  // URL atau path gambar perumahan
   createdAt     DateTime @default(now())
   
   @@map("alternatives")

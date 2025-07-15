@@ -5,6 +5,7 @@ import { Plus, Trash2, MapPin, Building, Upload } from "lucide-react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import axios from "axios";
+import Image from "next/image";
 import { formatCurrency } from "@/lib/saw-calculator";
 import FileUpload from "@/components/FileUpload";
 import { AlternativePrintButton } from "@/components/PrintButtons";
@@ -17,6 +18,7 @@ interface Alternative {
   jarak: number;
   fasilitas: number;
   transportasi: number;
+  gambar?: string;
   createdAt: string;
 }
 
@@ -34,6 +36,9 @@ export default function AlternativesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const {
     register,
@@ -61,21 +66,76 @@ export default function AlternativesPage() {
     fetchAlternatives();
   }, []);
 
+  // Handle image selection
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Upload image to server
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await axios.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success) {
+        return response.data.data.url;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Gagal mengupload gambar');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Handle form submission
   const onSubmit = async (data: AlternativeForm) => {
     try {
+      let imageUrl = null;
+      
+      // Upload image if selected
+      if (selectedImage) {
+        imageUrl = await uploadImage(selectedImage);
+        if (!imageUrl) {
+          toast.error('Gagal mengupload gambar');
+          return;
+        }
+      }
+
       const response = await axios.post("/api/alternatives", {
         ...data,
         harga: Number(data.harga),
         jarak: Number(data.jarak),
         fasilitas: Number(data.fasilitas),
         transportasi: Number(data.transportasi),
+        gambar: imageUrl,
       });
 
       if (response.data.success) {
         toast.success(response.data.message);
         setShowForm(false);
         reset();
+        setSelectedImage(null);
+        setImagePreview(null);
         fetchAlternatives();
       }
     } catch (error) {
@@ -193,6 +253,45 @@ export default function AlternativesPage() {
                   )}
                 </div>
 
+                {/* Gambar Upload */}
+                <div className="md:col-span-2">
+                  <label className="block text-white font-medium mb-2">
+                    Gambar Perumahan (Opsional)
+                  </label>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+                    />
+                    {imagePreview && (
+                      <div className="relative inline-block">
+                        <Image
+                          src={imagePreview}
+                          alt="Preview"
+                          width={128}
+                          height={128}
+                          className="w-32 h-32 object-cover rounded-lg border border-white/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedImage(null);
+                            setImagePreview(null);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-white/60 text-xs">
+                      Format yang didukung: JPEG, PNG, WebP. Maksimal 5MB.
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-white font-medium mb-2">
                     Harga (Rp) *
@@ -290,16 +389,23 @@ export default function AlternativesPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || uploadingImage}
                   className="btn-primary disabled:opacity-50"
                 >
-                  {isSubmitting ? "Menyimpan..." : "Simpan Alternatif"}
+                  {uploadingImage 
+                    ? "Mengupload gambar..." 
+                    : isSubmitting 
+                    ? "Menyimpan..." 
+                    : "Simpan Alternatif"
+                  }
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowForm(false);
                     reset();
+                    setSelectedImage(null);
+                    setImagePreview(null);
                   }}
                   className="btn-secondary"
                 >
@@ -355,6 +461,9 @@ export default function AlternativesPage() {
               <thead>
                 <tr className="border-b border-white/20">
                   <th className="text-left text-white font-semibold py-3 px-2">
+                    Gambar
+                  </th>
+                  <th className="text-left text-white font-semibold py-3 px-2">
                     Nama Perumahan
                   </th>
                   <th className="text-left text-white font-semibold py-3 px-2">
@@ -383,12 +492,29 @@ export default function AlternativesPage() {
                     key={alt.id}
                     className="border-b border-white/10 hover:bg-white/5"
                   >
+                    <td className="py-4 px-2">
+                      {alt.gambar ? (
+                        <Image
+                          src={alt.gambar}
+                          alt={alt.namaPerumahan}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 object-cover rounded-lg border border-white/20"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
+                          <Building className="w-6 h-6 text-white/40" />
+                        </div>
+                      )}
+                    </td>
                     <td className="py-4 px-2 text-white font-medium">
                       {alt.namaPerumahan}
                     </td>
-                    <td className="py-4 px-2 text-white/80 flex items-center">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      {alt.lokasi}
+                    <td className="py-4 px-2 text-white/80">
+                      <div className="flex items-center">
+                        <MapPin className="w-4 h-4 mr-1" />
+                        {alt.lokasi}
+                      </div>
                     </td>
                     <td className="py-4 px-2 text-white/80">
                       <p className="text-sm">{formatCurrency(alt.harga)}</p>
