@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { History, Eye, Trophy, Calendar, TrendingUp, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { formatNumber, formatCurrency } from '@/lib/saw-calculator';
+import { formatNumber } from '@/lib/saw-calculator';
 import ReportButtons from '@/components/ReportButtons';
 import { ReportGenerator } from '@/lib/report-generator';
 
@@ -14,29 +14,23 @@ interface HistoryItem {
   hasil: {
     normalizedAlternatives: Array<{
       id: number;
-      namaPerumahan: string;
+      nama: string;
       lokasi: string;
-      harga: number;
-      jarak: number;
-      fasilitas: number;
-      transportasi: number;
-      normalizedHarga: number;
-      normalizedJarak: number;
-      normalizedFasilitas: number;
-      normalizedTransportasi: number;
+      normalizedValues: { [key: number]: number };
       finalScore: number;
       ranking: number;
     }>;
     bestAlternative: {
-      namaPerumahan: string;
+      id: number;
+      nama: string;
       lokasi: string;
-      harga: number;
       finalScore: number;
     };
     criterias: Array<{
+      id: number;
       nama: string;
       bobot: number;
-      tipe: string;
+      tipe: 'benefit' | 'cost';
     }>;
   };
   alternatifTerbaik: string;
@@ -84,10 +78,18 @@ export default function HistoryPage() {
   // Quick print function
   const quickPrint = (history: HistoryItem) => {
     try {
+      // Find the best alternative (ranking 1)
+      const bestAlternative = history.hasil.normalizedAlternatives.find(alt => alt.ranking === 1);
+      
+      if (!bestAlternative) {
+        toast.error('Tidak dapat menemukan alternatif terbaik');
+        return;
+      }
+
       const reportData = {
         normalizedAlternatives: history.hasil.normalizedAlternatives,
-        criterias: history.hasil.criterias.map((c, idx) => ({ ...c, id: idx + 1, tipe: c.tipe as 'benefit' | 'cost' })),
-        bestAlternative: history.hasil.normalizedAlternatives[0], // Ranking 1
+        criterias: history.hasil.criterias,
+        bestAlternative: bestAlternative,
         tanggal: new Date(history.tanggal)
       };
       
@@ -264,10 +266,9 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h4 className="text-xl font-bold text-white mb-1">
-                      🏆 {selectedHistory.hasil.bestAlternative.namaPerumahan}
+                      🏆 {selectedHistory.hasil.bestAlternative.nama}
                     </h4>
                     <p className="text-white/80">📍 {selectedHistory.hasil.bestAlternative.lokasi}</p>
-                    <p className="text-white/80">💰 {formatCurrency(selectedHistory.hasil.bestAlternative.harga)}</p>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-yellow-400">
@@ -290,7 +291,11 @@ export default function HistoryPage() {
                       <th className="text-left text-white font-semibold py-3 px-2">Ranking</th>
                       <th className="text-left text-white font-semibold py-3 px-2">Perumahan</th>
                       <th className="text-left text-white font-semibold py-3 px-2">Lokasi</th>
-                      <th className="text-left text-white font-semibold py-3 px-2">Harga</th>
+                      {selectedHistory.hasil.criterias.map((criteria) => (
+                        <th key={criteria.id} className="text-left text-white font-semibold py-3 px-2">
+                          {criteria.nama}
+                        </th>
+                      ))}
                       <th className="text-left text-white font-semibold py-3 px-2">Skor Akhir</th>
                     </tr>
                   </thead>
@@ -306,9 +311,13 @@ export default function HistoryPage() {
                             {alt.ranking}
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-white font-medium">{alt.namaPerumahan}</td>
+                        <td className="py-3 px-2 text-white font-medium">{alt.nama}</td>
                         <td className="py-3 px-2 text-white/80">{alt.lokasi}</td>
-                        <td className="py-3 px-2 text-white/80">{formatCurrency(alt.harga)}</td>
+                        {selectedHistory.hasil.criterias.map((criteria) => (
+                          <td key={criteria.id} className="py-3 px-2 text-white/80">
+                            {formatNumber(alt.normalizedValues[criteria.id] || 0)}
+                          </td>
+                        ))}
                         <td className="py-3 px-2">
                           <span className="text-lg font-bold text-blue-300">
                             {formatNumber(alt.finalScore)}
@@ -363,8 +372,8 @@ export default function HistoryPage() {
                 <ReportButtons
                   data={{
                     normalizedAlternatives: selectedHistory.hasil.normalizedAlternatives,
-                    criterias: selectedHistory.hasil.criterias.map((c, idx) => ({ ...c, id: idx + 1, tipe: c.tipe as 'benefit' | 'cost' })),
-                    bestAlternative: selectedHistory.hasil.normalizedAlternatives[0], // Ambil ranking 1
+                    criterias: selectedHistory.hasil.criterias,
+                    bestAlternative: selectedHistory.hasil.normalizedAlternatives.find(alt => alt.ranking === 1) || selectedHistory.hasil.normalizedAlternatives[0],
                     tanggal: new Date(selectedHistory.tanggal)
                   }}
                 />
