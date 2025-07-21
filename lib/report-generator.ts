@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NormalizedAlternative, Criteria } from './saw-calculator';
-import { formatNumber, formatCurrency } from './saw-calculator';
+import { formatNumber } from './saw-calculator';
 
 export interface ReportData {
   normalizedAlternatives: NormalizedAlternative[];
@@ -28,22 +28,13 @@ export class ReportGenerator {
     this.doc.setFontSize(16);
     this.doc.text('Sistem Pendukung Keputusan (SPK)', 105, 30, { align: 'center' });
     this.doc.text('Pemilihan Perumahan Terbaik', 105, 40, { align: 'center' });
-    this.doc.text('Metode SAW (Simple Additive Weighting)', 105, 50, { align: 'center' });
+    this.doc.text('Menggunakan Metode SAW', 105, 50, { align: 'center' });
 
-    // Garis pemisah
-    this.doc.setLineWidth(0.5);
-    this.doc.line(20, 55, 190, 55);
-
-    // Informasi tanggal
+    // Informasi waktu
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'normal');
-    this.doc.text(`Tanggal Laporan: ${this.data.tanggal.toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })}`, 20, 65);
+    this.doc.text(`Tanggal: ${this.data.tanggal.toLocaleDateString('id-ID')}`, 20, 65);
+    this.doc.text(`Waktu: ${this.data.tanggal.toLocaleTimeString('id-ID')}`, 150, 65);
   }
 
   private addCriteriaTable() {
@@ -63,7 +54,7 @@ export class ReportGenerator {
       head: [['Kriteria', 'Bobot', 'Jenis', 'Keterangan']],
       body: criteriaData,
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] }, // Blue color
+      headStyles: { fillColor: [59, 130, 246] },
       styles: { fontSize: 10 },
       columnStyles: {
         0: { cellWidth: 40 },
@@ -74,68 +65,41 @@ export class ReportGenerator {
     });
   }
 
-  private addAlternativesTable() {
-    const finalY = (this.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
-    
-    this.doc.setFontSize(14);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('2. DATA ALTERNATIF PERUMAHAN', 20, finalY);
-
-    const alternativesData = this.data.normalizedAlternatives.map(alt => [
-      alt.namaPerumahan,
-      alt.lokasi,
-      formatCurrency(alt.harga),
-      `${alt.jarak} km`,
-      `${alt.fasilitas}/10`,
-      `${alt.transportasi}/10`
-    ]);
-
-    autoTable(this.doc, {
-      startY: finalY + 5,
-      head: [['Nama Perumahan', 'Lokasi', 'Harga', 'Jarak', 'Fasilitas', 'Transportasi']],
-      body: alternativesData,
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 30, halign: 'right' },
-        3: { cellWidth: 20, halign: 'center' },
-        4: { cellWidth: 20, halign: 'center' },
-        5: { cellWidth: 20, halign: 'center' }
-      }
-    });
-  }
-
   private addNormalizationTable() {
     const finalY = (this.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
     
     this.doc.setFontSize(14);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('3. HASIL NORMALISASI', 20, finalY);
+    this.doc.text('2. HASIL NORMALISASI', 20, finalY);
 
-    const normalizationData = this.data.normalizedAlternatives.map(alt => [
-      alt.namaPerumahan,
-      formatNumber(alt.normalizedHarga),
-      formatNumber(alt.normalizedJarak),
-      formatNumber(alt.normalizedFasilitas),
-      formatNumber(alt.normalizedTransportasi)
-    ]);
+    // Build dynamic headers for normalization
+    const headers = ['Nama Perumahan', 'Lokasi'];
+    this.data.criterias.forEach(criteria => {
+      headers.push(`${criteria.nama} (N)`);
+    });
+
+    const normalizationData = this.data.normalizedAlternatives.map(alt => {
+      const row = [alt.nama, alt.lokasi];
+      
+      // Add normalized values for each criteria
+      this.data.criterias.forEach(criteria => {
+        const normalizedValue = alt.normalizedValues[criteria.id];
+        row.push(normalizedValue ? formatNumber(normalizedValue) : '0');
+      });
+      
+      return row;
+    });
 
     autoTable(this.doc, {
       startY: finalY + 5,
-      head: [['Nama Perumahan', 'Harga (N)', 'Jarak (N)', 'Fasilitas (N)', 'Transportasi (N)']],
+      head: [headers],
       body: normalizationData,
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246] },
       styles: { fontSize: 9 },
       columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 25, halign: 'center' },
-        2: { cellWidth: 25, halign: 'center' },
-        3: { cellWidth: 30, halign: 'center' },
-        4: { cellWidth: 35, halign: 'center' }
+        0: { cellWidth: 40 },
+        1: { cellWidth: 30 }
       }
     });
   }
@@ -145,180 +109,102 @@ export class ReportGenerator {
     
     this.doc.setFontSize(14);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('4. HASIL PERINGKAT', 20, finalY);
+    this.doc.text('3. HASIL RANKING', 20, finalY);
 
-    const rankingData = this.data.normalizedAlternatives.map(alt => [
-      alt.ranking.toString(),
-      alt.namaPerumahan,
-      formatNumber(alt.finalScore),
-      alt.ranking === 1 ? 'TERBAIK' : alt.ranking <= 3 ? 'BAIK' : 'CUKUP'
-    ]);
+    const rankingData = this.data.normalizedAlternatives
+      .sort((a, b) => b.finalScore - a.finalScore)
+      .map((alt, index) => [
+        index + 1,
+        alt.nama,
+        alt.lokasi,
+        formatNumber(alt.finalScore)
+      ]);
 
     autoTable(this.doc, {
       startY: finalY + 5,
-      head: [['Peringkat', 'Nama Perumahan', 'Skor Akhir', 'Kategori']],
+      head: [['Ranking', 'Nama Perumahan', 'Lokasi', 'Skor Akhir']],
       body: rankingData,
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246] },
       styles: { fontSize: 10 },
       columnStyles: {
-        0: { cellWidth: 25, halign: 'center' },
+        0: { cellWidth: 20, halign: 'center' },
         1: { cellWidth: 60 },
-        2: { cellWidth: 30, halign: 'center' },
+        2: { cellWidth: 60 },
         3: { cellWidth: 30, halign: 'center' }
-      },
-      didParseCell: (data) => {
-        // Highlight baris peringkat 1
-        if (data.row.index === 0 && data.section === 'body') {
-          data.cell.styles.fillColor = [254, 240, 138]; // Yellow highlight
-          data.cell.styles.fontStyle = 'bold';
-        }
       }
     });
   }
 
-  private addConclusion() {
-    const finalY = (this.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
+  // private addConclusion() {
+  //   const finalY = (this.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
     
-    // Cek apakah perlu halaman baru
-    const pageHeight = this.doc.internal.pageSize.height;
-    if (finalY > pageHeight - 80) {
-      this.doc.addPage();
-      this.addNewPageHeader();
-      this.addConclusionContent(30);
-    } else {
-      this.addConclusionContent(finalY);
-    }
-  }
+  //   this.doc.setFontSize(14);
+  //   this.doc.setFont('helvetica', 'bold');
+  //   this.doc.text('4. KESIMPULAN', 20, finalY);
 
-  private addNewPageHeader() {
-    this.doc.setFontSize(16);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(0, 0, 0);
-    this.doc.text('LAPORAN HASIL ANALISIS SPK (Lanjutan)', 105, 20, { align: 'center' });
+  //   // Box untuk kesimpulan
+  //   const boxY = finalY + 5;
+  //   this.doc.setFillColor(255, 248, 220); // Light yellow background
+  //   this.doc.rect(20, boxY, 170, 30, 'F');
+  //   this.doc.setDrawColor(255, 193, 7); // Yellow border
+  //   this.doc.rect(20, boxY, 170, 30, 'S');
+
+  //   this.doc.setFontSize(12);
+  //   this.doc.setFont('helvetica', 'bold');
+  //   this.doc.setTextColor(0, 0, 0);
+  //   this.doc.text('🏆 PERUMAHAN TERBAIK:', 25, boxY + 10);
     
-    // Garis pemisah
-    this.doc.setLineWidth(0.5);
-    this.doc.line(20, 25, 190, 25);
-  }
-
-  private addConclusionContent(startY: number) {
-    this.doc.setFontSize(14);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(0, 0, 0);
-    this.doc.text('5. KESIMPULAN', 20, startY);
-
-    this.doc.setFontSize(12);
-    this.doc.setFont('helvetica', 'normal');
+  //   this.doc.setFontSize(14);
+  //   this.doc.text(this.data.bestAlternative.nama, 25, boxY + 20);
     
-    const conclusionText = [
-      `Berdasarkan hasil analisis menggunakan metode SAW (Simple Additive Weighting),`,
-      `perumahan terbaik adalah:`,
-      '',
-      `Nama: ${this.data.bestAlternative.namaPerumahan}`,
-      `Lokasi: ${this.data.bestAlternative.lokasi}`,
-      `Skor Akhir: ${formatNumber(this.data.bestAlternative.finalScore)}`,
-      '',
-      `Perumahan ini memiliki kombinasi terbaik dari semua kriteria yang telah`,
-      `ditetapkan dengan mempertimbangkan bobot masing-masing kriteria.`
-    ];
+  //   this.doc.setFontSize(10);
+  //   this.doc.setFont('helvetica', 'normal');
+  //   this.doc.text(`Lokasi: ${this.data.bestAlternative.lokasi}`, 25, boxY + 28);
+  //   this.doc.text(`Skor Akhir: ${formatNumber(this.data.bestAlternative.finalScore)}`, 140, boxY + 28);
 
-    let yPosition = startY + 8;
-    conclusionText.forEach(line => {
-      this.doc.text(line, 20, yPosition);
-      yPosition += 6;
-    });
-
-    // Box untuk hasil terbaik
-    const boxY = startY + 20;
-    this.doc.setDrawColor(59, 130, 246);
-    this.doc.setFillColor(239, 246, 255);
-    this.doc.rect(20, boxY, 170, 25, 'FD');
+  //   // Penjelasan metode
+  //   const explanationY = boxY + 40;
+  //   this.doc.setFontSize(10);
+  //   this.doc.setFont('helvetica', 'normal');
+  //   this.doc.setTextColor(0, 0, 0);
     
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(59, 130, 246);
-    this.doc.text('REKOMENDASI PERUMAHAN TERBAIK:', 25, boxY + 10);
-    this.doc.text(this.data.bestAlternative.namaPerumahan, 25, boxY + 18);
+  //   const explanationText = [
+  //     'Hasil analisis ini diperoleh menggunakan metode Simple Additive Weighting (SAW).',
+  //     'Metode SAW menghitung skor akhir berdasarkan nilai normalisasi setiap kriteria',
+  //     'yang dikalikan dengan bobot masing-masing kriteria.',
+  //     '',
+  //     'Perumahan dengan skor tertinggi adalah pilihan terbaik berdasarkan kriteria yang telah ditentukan.'
+  //   ];
     
-    // Reset color untuk footer
-    this.doc.setTextColor(0, 0, 0);
-    this.doc.setFont('helvetica', 'normal');
-  }
-
-  // private addFooter() {
-  //   const pageCount = this.doc.internal.getNumberOfPages();
-  //   const pageHeight = this.doc.internal.pageSize.height;
-    
-  //   // Tambahkan footer untuk setiap halaman
-  //   for (let i = 1; i <= pageCount; i++) {
-  //     this.doc.setPage(i);
-      
-  //     // Save current settings
-  //     const currentFontSize = this.doc.internal.getFontSize();
-  //     const currentFont = this.doc.internal.getFont();
-      
-  //     this.doc.setFontSize(10);
-  //     this.doc.setFont('helvetica', 'italic');
-  //     this.doc.setTextColor(128, 128, 128);
-      
-  //     // this.doc.text('Laporan ini dibuat secara otomatis oleh Sistem Pendukung Keputusan', 105, pageHeight - 20, { align: 'center' });
-  //     // this.doc.text('SPK Pemilihan Perumahan dengan Metode SAW', 105, pageHeight - 15, { align: 'center' });
-  //     // this.doc.text(`Halaman ${i} dari ${pageCount}`, 105, pageHeight - 10, { align: 'center' });
-      
-  //     // Restore settings
-  //     this.doc.setFontSize(currentFontSize);
-  //     this.doc.setFont(currentFont.fontName, currentFont.fontStyle);
-  //     this.doc.setTextColor(0, 0, 0);
-  //   }
+  //   explanationText.forEach((text, index) => {
+  //     this.doc.text(text, 20, explanationY + (index * 6));
+  //   });
   // }
 
   public generatePDF(): jsPDF {
-    try {
-      // Reset text color untuk memastikan warna default
-      this.doc.setTextColor(0, 0, 0);
-      this.doc.setFont('helvetica', 'normal');
-      
-      this.addHeader();
-      this.addCriteriaTable();
-      this.addAlternativesTable();
-      this.addNormalizationTable();
-      this.addRankingTable();
-      this.addConclusion();
-      // this.addFooter();
-
-      return this.doc;
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      // Return a minimal PDF with error message
-      this.doc = new jsPDF();
-      this.doc.setFontSize(16);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('Error Generating Report', 105, 100, { align: 'center' });
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text('Terjadi kesalahan saat membuat laporan PDF.', 105, 120, { align: 'center' });
-      this.doc.text('Silakan coba lagi atau hubungi administrator.', 105, 135, { align: 'center' });
-      return this.doc;
-    }
-  }
-
-  public downloadPDF(filename?: string): void {
-    const pdf = this.generatePDF();
-    const defaultFilename = `Laporan_SPK_Perumahan_${new Date().toISOString().split('T')[0]}.pdf`;
-    pdf.save(filename || defaultFilename);
-  }
-
-  public printPDF(): void {
-    const pdf = this.generatePDF();
-    const pdfBlob = pdf.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
+    this.addHeader();
+    this.addCriteriaTable();
+    this.addNormalizationTable();
+    this.addRankingTable();
+    // this.addConclusion();
     
-    // Buka di window baru untuk print
-    const printWindow = window.open(pdfUrl);
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    }
+    return this.doc;
   }
+
+  public downloadPDF(filename: string = 'laporan-spk-saw.pdf') {
+    const doc = this.generatePDF();
+    doc.save(filename);
+  }
+
+  public getPDFBlob(): Blob {
+    const doc = this.generatePDF();
+    return doc.output('blob');
+  }
+}
+
+// Utility function untuk membuat laporan cepat
+export function generateQuickReport(data: ReportData): void {
+  const generator = new ReportGenerator(data);
+  generator.downloadPDF();
 }

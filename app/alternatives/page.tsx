@@ -1,41 +1,51 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, MapPin, Building, Upload } from "lucide-react";
+import { Plus, Trash2, MapPin, Building, Upload, Edit, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import axios from "axios";
 import Image from "next/image";
-import { formatCurrency } from "@/lib/saw-calculator";
 import FileUpload from "@/components/FileUpload";
-import { AlternativePrintButton } from "@/components/PrintButtons";
+
+interface Criteria {
+  id: number;
+  nama: string;
+  bobot: number;
+  tipe: "benefit" | "cost";
+}
+
+interface AlternativeValue {
+  id: number;
+  nilai: number;
+  criteriaId: number;
+  criteria: Criteria;
+}
 
 interface Alternative {
   id: number;
-  namaPerumahan: string;
+  nama: string;
   lokasi: string;
-  harga: number;
-  jarak: number;
-  fasilitas: number;
-  transportasi: number;
   gambar?: string;
   createdAt: string;
+  values: AlternativeValue[];
 }
 
-interface AlternativeForm {
-  namaPerumahan: string;
+interface AlternativeFormData {
+  nama: string;
   lokasi: string;
-  harga: number;
-  jarak: number;
-  fasilitas: number;
-  transportasi: number;
+  gambar?: string;
+  values: Record<string, number>; // Use Record<string, number> for dynamic keys
 }
 
 export default function AlternativesPage() {
   const [alternatives, setAlternatives] = useState<Alternative[]>([]);
+  const [criterias, setCriterias] = useState<Criteria[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [editingAlternative, setEditingAlternative] = useState<Alternative | null>(null);
+  const [deletingAlternative, setDeletingAlternative] = useState<Alternative | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -45,7 +55,20 @@ export default function AlternativesPage() {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<AlternativeForm>();
+  } = useForm<AlternativeFormData>();
+
+  // Fetch criterias
+  const fetchCriterias = async () => {
+    try {
+      const response = await axios.get("/api/criterias");
+      if (response.data.success) {
+        setCriterias(response.data.data);
+      }
+    } catch (error) {
+      toast.error("Gagal memuat data kriteria");
+      console.error("Error fetching criterias:", error);
+    }
+  };
 
   // Fetch alternatives
   const fetchAlternatives = async () => {
@@ -63,6 +86,7 @@ export default function AlternativesPage() {
   };
 
   useEffect(() => {
+    fetchCriterias();
     fetchAlternatives();
   }, []);
 
@@ -108,7 +132,7 @@ export default function AlternativesPage() {
   };
 
   // Handle form submission
-  const onSubmit = async (data: AlternativeForm) => {
+  const onSubmit = async (data: AlternativeFormData) => {
     try {
       let imageUrl = null;
       
@@ -121,43 +145,136 @@ export default function AlternativesPage() {
         }
       }
 
-      const response = await axios.post("/api/alternatives", {
-        ...data,
-        harga: Number(data.harga),
-        jarak: Number(data.jarak),
-        fasilitas: Number(data.fasilitas),
-        transportasi: Number(data.transportasi),
-        gambar: imageUrl,
+      // Prepare values array from form data - ensure all criteria have values
+      const values: { criteriaId: number; nilai: number }[] = [];
+      
+      criterias.forEach(criteria => {
+        const nilai = data.values?.[criteria.id.toString()] || 0;
+        values.push({
+          criteriaId: criteria.id,
+          nilai: Number(nilai)
+        });
       });
 
-      if (response.data.success) {
-        toast.success(response.data.message);
-        setShowForm(false);
-        reset();
-        setSelectedImage(null);
-        setImagePreview(null);
-        fetchAlternatives();
+      const payload = {
+        nama: data.nama,
+        lokasi: data.lokasi,
+        gambar: imageUrl || data.gambar,
+        values: values
+      };
+
+      if (editingAlternative) {
+        // Update existing alternative
+        const response = await axios.put(`/api/alternatives/${editingAlternative.id}`, payload);
+        if (response.data.success) {
+          toast.success(response.data.message);
+          handleCloseForm();
+          fetchAlternatives();
+        }
+      } else {
+        // Create new alternative
+        const response = await axios.post("/api/alternatives", payload);
+        if (response.data.success) {
+          toast.success(response.data.message);
+          handleCloseForm();
+          fetchAlternatives();
+        }
       }
-    } catch (error) {
-      toast.error("Gagal menambahkan alternatif");
-      console.error("Error creating alternative:", error);
+    } catch (error: unknown) {
+      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
+        ? error.response.data.message
+        : "Gagal menyimpan alternatif";
+      toast.error(errorMessage);
+      console.error("Error saving alternative:", error);
     }
   };
 
   // Handle delete
   const handleDelete = async (id: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus alternatif ini?")) return;
+    const alternative = alternatives.find(alt => alt.id === id);
+    if (!alternative) return;
+    
+    setDeletingAlternative(alternative);
+  };
 
+  // Confirm delete
+  const confirmDelete = async () => {
+    if (!deletingAlternative) return;
+    
     try {
-      const response = await axios.delete(`/api/alternatives/${id}`);
+      const response = await axios.delete(`/api/alternatives/${deletingAlternative.id}`);
       if (response.data.success) {
         toast.success(response.data.message);
         fetchAlternatives();
+        setDeletingAlternative(null);
       }
-    } catch (error) {
-      toast.error("Gagal menghapus alternatif");
+    } catch (error: unknown) {
+      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
+        ? error.response.data.message
+        : "Gagal menghapus alternatif";
+      toast.error(errorMessage);
       console.error("Error deleting alternative:", error);
     }
+  };
+
+  // Handle edit
+  const handleEdit = (alternative: Alternative) => {
+    setEditingAlternative(alternative);
+    
+    // Set form values - make sure all criteria have values
+    const valuesMap: Record<string, number> = {};
+    
+    // Initialize all criteria with 0 first
+    criterias.forEach(criteria => {
+      valuesMap[criteria.id.toString()] = 0;
+    });
+    
+    // Then set existing values
+    alternative.values.forEach(value => {
+      valuesMap[value.criteriaId.toString()] = value.nilai;
+    });
+    
+    reset({
+      nama: alternative.nama,
+      lokasi: alternative.lokasi,
+      gambar: alternative.gambar,
+      values: valuesMap
+    });
+    
+    if (alternative.gambar) {
+      setImagePreview(alternative.gambar);
+    }
+    
+    setShowForm(true);
+  };
+
+  // Handle create
+  const handleCreate = () => {
+    setEditingAlternative(null);
+    const emptyValues: { [key: number]: number } = {};
+    criterias.forEach(criteria => {
+      emptyValues[criteria.id] = 0;
+    });
+    
+    reset({
+      nama: "",
+      lokasi: "",
+      gambar: "",
+      values: emptyValues
+    });
+    
+    setSelectedImage(null);
+    setImagePreview(null);
+    setShowForm(true);
+  };
+
+  // Handle close form
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingAlternative(null);
+    setSelectedImage(null);
+    setImagePreview(null);
+    reset();
   };
 
   if (loading) {
@@ -178,30 +295,23 @@ export default function AlternativesPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Input Alternatif Perumahan
+              Input Alternatif
             </h1>
             <p className="text-white/80">
-              Tambahkan data perumahan dengan kriteria yang akan dievaluasi
+              Tambahkan data alternatif dengan nilai kriteria yang akan dievaluasi
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {alternatives.length > 0 && (
-              <AlternativePrintButton alternatives={alternatives} />
-            )}
             <button
               onClick={() => setShowUpload(true)}
               className="btn-secondary"
             >
-              <div className="flex items-center">
-                <Upload className="w-5 h-5 mr-2" />
-                <span>Upload File</span>
-              </div>
+              <Upload className="w-5 h-5 mr-2" />
+              Upload File
             </button>
-            <button onClick={() => setShowForm(true)} className="btn-primary">
-              <div className="flex items-center">
-                <Plus className="w-5 h-5 mr-2" />
-                <span>Tambah Manual</span>
-              </div>
+            <button onClick={handleCreate} className="btn-primary">
+              <Plus className="w-5 h-5 mr-2" />
+              Tambah Manual
             </button>
           </div>
         </div>
@@ -211,27 +321,35 @@ export default function AlternativesPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="glass-card p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-6">
-              Tambah Alternatif Baru
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                {editingAlternative ? "Edit Alternatif" : "Tambah Alternatif Baru"}
+              </h2>
+              <button
+                onClick={handleCloseForm}
+                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-white font-medium mb-2">
-                    Nama Perumahan *
+                    Nama Alternatif *
                   </label>
                   <input
-                    {...register("namaPerumahan", {
-                      required: "Nama perumahan harus diisi",
+                    {...register("nama", {
+                      required: "Nama alternatif harus diisi",
                     })}
                     type="text"
                     className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Contoh: Perumahan Griya Indah"
                   />
-                  {errors.namaPerumahan && (
+                  {errors.nama && (
                     <p className="text-red-300 text-sm mt-1">
-                      {errors.namaPerumahan.message}
+                      {errors.nama.message}
                     </p>
                   )}
                 </div>
@@ -292,98 +410,28 @@ export default function AlternativesPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-white font-medium mb-2">
-                    Harga (Rp) *
-                  </label>
-                  <input
-                    {...register("harga", {
-                      required: "Harga harus diisi",
-                      min: { value: 1, message: "Harga harus lebih dari 0" },
-                    })}
-                    type="number"
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="500000000"
-                  />
-                  {errors.harga && (
-                    <p className="text-red-300 text-sm mt-1">
-                      {errors.harga.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-white font-medium mb-2">
-                    Jarak ke Pusat Kota (km) *
-                  </label>
-                  <input
-                    {...register("jarak", {
-                      required: "Jarak harus diisi",
-                      min: { value: 0.1, message: "Jarak harus lebih dari 0" },
-                    })}
-                    type="number"
-                    step="0.1"
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="5.5"
-                  />
-                  {errors.jarak && (
-                    <p className="text-red-300 text-sm mt-1">
-                      {errors.jarak.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-white font-medium mb-2">
-                    Fasilitas (1-10) *
-                  </label>
-                  <select
-                    {...register("fasilitas", {
-                      required: "Skor fasilitas harus dipilih",
-                      min: { value: 1, message: "Minimal skor 1" },
-                      max: { value: 10, message: "Maksimal skor 10" },
-                    })}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Pilih Skor</option>
-                    {[...Array(10)].map((_, i) => (
-                      <option key={i + 1} value={i + 1} className="bg-gray-800">
-                        {i + 1}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.fasilitas && (
-                    <p className="text-red-300 text-sm mt-1">
-                      {errors.fasilitas.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-white font-medium mb-2">
-                    Akses Transportasi (1-10) *
-                  </label>
-                  <select
-                    {...register("transportasi", {
-                      required: "Skor transportasi harus dipilih",
-                      min: { value: 1, message: "Minimal skor 1" },
-                      max: { value: 10, message: "Maksimal skor 10" },
-                    })}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Pilih Skor</option>
-                    {[...Array(10)].map((_, i) => (
-                      <option key={i + 1} value={i + 1} className="bg-gray-800">
-                        {i + 1}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.transportasi && (
-                    <p className="text-red-300 text-sm mt-1">
-                      {errors.transportasi.message}
-                    </p>
-                  )}
-                </div>
+                {/* Dynamic Criteria Fields */}
+                {criterias.map((criteria) => (
+                  <div key={criteria.id}>
+                    <label className="block text-white font-medium mb-2">
+                      {criteria.nama} *
+                    </label>
+                    <input
+                      {...register(`values.${criteria.id}`, {
+                        required: `${criteria.nama} harus diisi`,
+                      })}
+                      type="number"
+                      step="0.1"
+                      className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={`Masukkan ${criteria.nama.toLowerCase()}`}
+                    />
+                    {errors.values?.[criteria.id.toString()] && (
+                      <p className="text-red-300 text-sm mt-1">
+                        {errors.values[criteria.id.toString()]?.message}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -427,17 +475,18 @@ export default function AlternativesPage() {
               </h2>
               <button
                 onClick={() => setShowUpload(false)}
-                className="btn-secondary"
+                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
               >
-                Tutup
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <FileUpload
+            <FileUpload 
               onUploadComplete={() => {
-                fetchAlternatives();
                 setShowUpload(false);
+                fetchAlternatives();
               }}
+              className="text-gray-900"
             />
           </div>
         </div>
@@ -469,18 +518,11 @@ export default function AlternativesPage() {
                   <th className="text-left text-white font-semibold py-3 px-2">
                     Lokasi
                   </th>
-                  <th className="text-left text-white font-semibold py-3 px-2">
-                    Harga
-                  </th>
-                  <th className="text-left text-white font-semibold py-3 px-2">
-                    Jarak (km)
-                  </th>
-                  <th className="text-left text-white font-semibold py-3 px-2">
-                    Fasilitas
-                  </th>
-                  <th className="text-left text-white font-semibold py-3 px-2">
-                    Transportasi
-                  </th>
+                  {criterias.map((criteria) => (
+                    <th key={criteria.id} className="text-left text-white font-semibold py-3 px-2">
+                      {criteria.nama}
+                    </th>
+                  ))}
                   <th className="text-left text-white font-semibold py-3 px-2">
                     Aksi
                   </th>
@@ -496,7 +538,7 @@ export default function AlternativesPage() {
                       {alt.gambar ? (
                         <Image
                           src={alt.gambar}
-                          alt={alt.namaPerumahan}
+                          alt={alt.nama}
                           width={64}
                           height={64}
                           className="w-16 h-16 object-cover rounded-lg border border-white/20"
@@ -508,7 +550,7 @@ export default function AlternativesPage() {
                       )}
                     </td>
                     <td className="py-4 px-2 text-white font-medium">
-                      {alt.namaPerumahan}
+                      {alt.nama}
                     </td>
                     <td className="py-4 px-2 text-white/80">
                       <div className="flex items-center">
@@ -516,22 +558,29 @@ export default function AlternativesPage() {
                         {alt.lokasi}
                       </div>
                     </td>
-                    <td className="py-4 px-2 text-white/80">
-                      <p className="text-sm">{formatCurrency(alt.harga)}</p>
-                    </td>
-                    <td className="py-4 px-2 text-white/80">{alt.jarak} km</td>
-                    <td className="py-4 px-2">
-                      <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-sm">
-                        {alt.fasilitas}/10
-                      </span>
-                    </td>
-                    <td className="py-4 px-2">
-                      <span className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-sm">
-                        {alt.transportasi}/10
-                      </span>
-                    </td>
+                    {criterias.map((criteria) => {
+                      const value = alt.values.find(v => v.criteriaId === criteria.id);
+                      return (
+                        <td key={criteria.id} className="py-4 px-2 text-white/80">
+                          {value ? (
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-sm">
+                              {value.nilai}
+                            </span>
+                          ) : (
+                            <span className="text-white/40">-</span>
+                          )}
+                        </td>
+                      );
+                    })}
                     <td className="py-4 px-2">
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(alt)}
+                          className="p-2 bg-blue-500/20 text-blue-300 rounded hover:bg-blue-500/30 transition-colors"
+                          title="Edit"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDelete(alt.id)}
                           className="p-2 bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition-colors"
@@ -567,6 +616,38 @@ export default function AlternativesPage() {
               <a href="/calculation" className="inline-block btn-primary mt-2">
                 Lanjut ke Perhitungan
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingAlternative && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Konfirmasi Hapus
+            </h3>
+            <p className="text-white/80 mb-6">
+              Apakah Anda yakin ingin menghapus alternatif{" "}
+              <span className="font-semibold text-white">
+                {deletingAlternative.nama}
+              </span>
+              ? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingAlternative(null)}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Hapus
+              </button>
             </div>
           </div>
         </div>

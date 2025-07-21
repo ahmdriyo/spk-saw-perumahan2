@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,26 +8,39 @@ datasource db {
 }
 
 model Alternative {
-  id            Int      @id @default(autoincrement())
-  namaPerumahan String
-  lokasi        String
-  harga         Float    // C1 (cost)
-  jarak         Float    // C2 (cost) - dalam km
-  fasilitas     Int      // C3 (benefit) - skor 1-10
-  transportasi  Int      // C4 (benefit) - skor 1-10
-  gambar        String?  // URL atau path gambar perumahan
-  createdAt     DateTime @default(now())
-  
+  id        Int                @id @default(autoincrement())
+  nama      String
+  lokasi    String
+  gambar    String?
+  createdAt DateTime           @default(now())
+
+  values    AlternativeValue[]  // hubungan dengan semua nilai per kriteria
+
   @@map("alternatives")
 }
 
 model Criteria {
-  id    Int           @id @default(autoincrement())
-  nama  String
-  bobot Float         // dalam persen (0-100)
-  tipe  CriteriaType  // benefit atau cost
-  
+  id     Int                @id @default(autoincrement())
+  nama   String
+  tipe   CriteriaType       // "benefit" atau "cost"
+  bobot  Float              // misal: 0.4
+
+  values AlternativeValue[]
+
   @@map("criterias")
+}
+
+model AlternativeValue {
+  id            Int         @id @default(autoincrement())
+  nilai         Float       // nilai untuk criteria ini
+  alternativeId Int
+  criteriaId    Int
+
+  alternative   Alternative @relation(fields: [alternativeId], references: [id], onDelete: Cascade)
+  criteria      Criteria    @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+
+  @@unique([alternativeId, criteriaId])
+  @@map("alternative_values")
 }
 
 model History {

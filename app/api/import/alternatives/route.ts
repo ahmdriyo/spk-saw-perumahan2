@@ -5,13 +5,10 @@ import { z } from 'zod';
 
 // Schema untuk validasi data dari file
 const alternativeFromFileSchema = z.object({
-  namaPerumahan: z.string().min(1, 'Nama perumahan harus diisi'),
+  nama: z.string().min(1, 'Nama perumahan harus diisi'),
   lokasi: z.string().min(1, 'Lokasi harus diisi'),
-  harga: z.number().positive('Harga harus lebih dari 0'),
-  jarak: z.number().positive('Jarak harus lebih dari 0'),
-  fasilitas: z.number().int().min(1, 'Skor fasilitas minimal 1').max(10, 'Skor fasilitas maksimal 10'),
-  transportasi: z.number().int().min(1, 'Skor transportasi minimal 1').max(10, 'Skor transportasi maksimal 10'),
   gambar: z.string().optional().nullable(),
+  values: z.record(z.string(), z.number()).optional(),
 });
 
 function parseExcelData(buffer: Buffer): Record<string, unknown>[] {
@@ -49,29 +46,36 @@ function parseCSVData(text: string) {
   return data;
 }
 
-function normalizeData(rawData: Record<string, unknown>[]): Record<string, unknown>[] {
+function normalizeData(rawData: Record<string, unknown>[], criterias: { id: number; nama: string; tipe: string; bobot: number }[]): Record<string, unknown>[] {
   return rawData.map(item => {
     // Normalize column names to match our schema
-    const normalized: Record<string, unknown> = {};
+    const normalized: Record<string, unknown> = {
+      values: {}
+    };
     
     Object.keys(item).forEach(key => {
       const lowerKey = key.toLowerCase().replace(/\s+/g, '');
       
       if (lowerKey.includes('nama') || lowerKey.includes('perumahan')) {
-        normalized.namaPerumahan = String(item[key]);
+        normalized.nama = String(item[key]);
       } else if (lowerKey.includes('lokasi') || lowerKey.includes('alamat')) {
         normalized.lokasi = String(item[key]);
-      } else if (lowerKey.includes('harga') || lowerKey.includes('price')) {
-        normalized.harga = parseFloat(String(item[key]).replace(/[^\d.-]/g, ''));
-      } else if (lowerKey.includes('jarak') || lowerKey.includes('distance')) {
-        normalized.jarak = parseFloat(String(item[key]).replace(/[^\d.-]/g, ''));
-      } else if (lowerKey.includes('fasilitas') || lowerKey.includes('facility')) {
-        normalized.fasilitas = parseInt(String(item[key]).replace(/[^\d]/g, ''));
-      } else if (lowerKey.includes('transportasi') || lowerKey.includes('transport')) {
-        normalized.transportasi = parseInt(String(item[key]).replace(/[^\d]/g, ''));
       } else if (lowerKey.includes('gambar') || lowerKey.includes('image') || lowerKey.includes('foto') || lowerKey.includes('photo')) {
         const imageValue = String(item[key]).trim();
         normalized.gambar = imageValue && imageValue !== '' ? imageValue : null;
+      } else {
+        // Check if this key matches any criteria name
+        const matchingCriteria = criterias.find(c => 
+          c.nama.toLowerCase().replace(/\s+/g, '') === lowerKey ||
+          key.toLowerCase() === c.nama.toLowerCase()
+        );
+        
+        if (matchingCriteria) {
+          const numericValue = parseFloat(String(item[key]).replace(/[^\d.-]/g, ''));
+          if (!isNaN(numericValue)) {
+            (normalized.values as Record<string, number>)[matchingCriteria.id.toString()] = numericValue;
+          }
+        }
       }
     });
     
@@ -110,6 +114,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get all criterias first
+    const criterias = await prisma.criteria.findMany({
+      orderBy: { id: 'asc' }
+    });
+
+    if (criterias.length === 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Tidak ada kriteria yang ditemukan. Tambahkan kriteria terlebih dahulu.' 
+        },
+        { status: 400 }
+      );
+    }
     
     let rawData: Record<string, unknown>[];
     
@@ -132,14 +151,25 @@ export async function POST(request: NextRequest) {
     }
     
     // Normalize dan validasi data
-    const normalizedData = normalizeData(rawData);
-    const validatedData = [];
+    const normalizedData = normalizeData(rawData, criterias);
+    const validatedData: { nama: string; lokasi: string; gambar?: string | null; values: Record<string, number> }[] = [];
     const errors = [];
     
     for (let i = 0; i < normalizedData.length; i++) {
       try {
         const validated = alternativeFromFileSchema.parse(normalizedData[i]);
-        validatedData.push(validated);
+        
+        // Ensure all criteria have values
+        const valuesMap: Record<string, number> = {};
+        criterias.forEach(criteria => {
+          const value = validated.values?.[criteria.id.toString()];
+          valuesMap[criteria.id.toString()] = value || 0;
+        });
+        
+        validatedData.push({
+          ...validated,
+          values: valuesMap
+        });
       } catch (error) {
         errors.push({
           row: i + 2, // +2 karena index 0 + header row
@@ -161,19 +191,45 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Simpan data ke database
-    const savedAlternatives = await prisma.alternative.createMany({
-      data: validatedData,
-      skipDuplicates: true
+    // Simpan data ke database dengan transaction
+    const result = await prisma.$transaction(async (prismaTransaction) => {
+      const savedAlternatives = [];
+      
+      for (const data of validatedData) {
+        // Create alternative
+        const alternative = await prismaTransaction.alternative.create({
+          data: {
+            nama: data.nama,
+            lokasi: data.lokasi,
+            gambar: data.gambar || null,
+          }
+        });
+        
+        // Create alternative values
+        const valuePromises = Object.entries(data.values).map(([criteriaId, nilai]) => 
+          prismaTransaction.alternativeValue.create({
+            data: {
+              alternativeId: alternative.id,
+              criteriaId: parseInt(criteriaId),
+              nilai: Number(nilai)
+            }
+          })
+        );
+        
+        await Promise.all(valuePromises);
+        savedAlternatives.push(alternative);
+      }
+      
+      return savedAlternatives;
     });
     
     return NextResponse.json({
       success: true,
       data: {
-        imported: savedAlternatives.count,
+        imported: result.length,
         total: validatedData.length
       },
-      message: `Berhasil mengimpor ${savedAlternatives.count} data alternatif dari file`
+      message: `Berhasil mengimpor ${result.length} data alternatif dari file`
     });
     
   } catch (error) {

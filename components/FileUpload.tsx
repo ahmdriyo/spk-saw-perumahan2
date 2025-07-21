@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, AlertCircle, CheckCircle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+
+interface Criteria {
+  id: number;
+  nama: string;
+  tipe: 'benefit' | 'cost';
+  bobot: number;
+}
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -13,7 +20,24 @@ interface FileUploadProps {
 export default function FileUpload({ onUploadComplete, className = '' }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [criterias, setCriterias] = useState<Criteria[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch criterias
+  useEffect(() => {
+    const fetchCriterias = async () => {
+      try {
+        const response = await axios.get('/api/criterias');
+        if (response.data.success) {
+          setCriterias(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching criterias:', error);
+      }
+    };
+
+    fetchCriterias();
+  }, []);
 
   const handleFiles = async (files: FileList) => {
     if (files.length === 0) return;
@@ -58,14 +82,28 @@ export default function FileUpload({ onUploadComplete, className = '' }: FileUpl
       console.error('Error uploading file:', error);
       
       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { details?: unknown[]; error?: string } } };
+        const axiosError = error as { response?: { data?: { details?: unknown[]; error?: string; validData?: unknown[] } } };
         
-        if (axiosError.response?.data?.details) {
+        if (axiosError.response?.data?.details && Array.isArray(axiosError.response.data.details)) {
           const errors = axiosError.response.data.details;
-          toast.error(`Gagal mengimpor beberapa data. ${Array.isArray(errors) ? errors.length : 0} baris memiliki error.`);
+          const validData = axiosError.response.data.validData;
           
-          // Show detailed errors
-          console.log('Import errors:', errors);
+          // Show detailed error information
+          toast.error(
+            `Gagal mengimpor ${errors.length} baris data. ${Array.isArray(validData) ? validData.length : 0} baris berhasil divalidasi.`,
+            { duration: 5000 }
+          );
+          
+          // Log detailed errors for debugging
+          console.log('Import errors detail:', errors);
+          
+          // Show first few errors
+          (errors as { row: number; error: string }[]).slice(0, 3).forEach((err, index) => {
+            setTimeout(() => {
+              toast.error(`Baris ${err.row}: ${err.error}`, { duration: 4000 });
+            }, (index + 1) * 1000);
+          });
+          
         } else {
           toast.error(axiosError.response?.data?.error || 'Gagal mengupload file');
         }
@@ -134,24 +172,66 @@ export default function FileUpload({ onUploadComplete, className = '' }: FileUpl
     }
   };
 
+  const downloadCSVExample = async () => {
+    try {
+      const response = await fetch('/api/template/csv');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'contoh-data-perumahan.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Contoh file CSV berhasil didownload');
+      } else {
+        throw new Error('Gagal mendownload contoh CSV');
+      }
+    } catch (error) {
+      console.error('Error downloading CSV example:', error);
+      toast.error('Gagal mendownload contoh CSV');
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Template Download */}
-      <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-blue-600" />
-          <div>
-            <h4 className="font-medium text-blue-900">Template File Excel</h4>
-            <p className="text-sm text-blue-700">Download template dengan contoh data dan kolom gambar</p>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-blue-600" />
+            <div>
+              <h4 className="font-medium text-blue-900">Template Excel</h4>
+              <p className="text-sm text-blue-700">Template dengan struktur kolom dinamis</p>
+            </div>
           </div>
+          <button
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download size={16} />
+            Download
+          </button>
         </div>
-        <button
-          onClick={downloadTemplate}
-          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Download size={16} />
-          Download Template
-        </button>
+
+        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-green-600" />
+            <div>
+              <h4 className="font-medium text-green-900">Contoh CSV</h4>
+              <p className="text-sm text-green-700">File CSV dengan contoh data</p>
+            </div>
+          </div>
+          <button
+            onClick={downloadCSVExample}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={16} />
+            Download
+          </button>
+        </div>
       </div>
 
       {/* Upload Area */}
@@ -220,10 +300,9 @@ export default function FileUpload({ onUploadComplete, className = '' }: FileUpl
           <ul className="text-sm text-amber-700 space-y-1">
             <li>• Nama Perumahan</li>
             <li>• Lokasi</li>
-            <li>• Harga (dalam Rupiah)</li>
-            <li>• Jarak (dalam km)</li>
-            <li>• Fasilitas (skor 1-10)</li>
-            <li>• Transportasi (skor 1-10)</li>
+            {criterias.map((criteria) => (
+              <li key={criteria.id}>• {criteria.nama}</li>
+            ))}
             <li>• Gambar (URL, opsional)</li>
           </ul>
         </div>

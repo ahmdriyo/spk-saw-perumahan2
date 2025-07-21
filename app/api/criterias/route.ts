@@ -1,30 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { criteriaSchema } from '@/lib/validations';
+
+const CriteriaSchema = z.object({
+  nama: z.string().min(1, 'Nama kriteria harus diisi'),
+  tipe: z.enum(['benefit', 'cost']),
+  bobot: z.number().min(0).max(100),
+});
+
+const CriteriasUpdateSchema = z.object({
+  criterias: z.array(CriteriaSchema.extend({
+    id: z.number()
+  }))
+});
 
 export async function GET() {
   try {
-    let criterias = await prisma.criteria.findMany({
+    const criterias = await prisma.criteria.findMany({
       orderBy: { id: 'asc' }
     });
-    
-    // Jika belum ada kriteria, buat kriteria default
-    if (criterias.length === 0) {
-      const defaultCriterias = [
-        { nama: 'Harga', bobot: 25, tipe: 'cost' as const },
-        { nama: 'Jarak', bobot: 25, tipe: 'cost' as const },
-        { nama: 'Fasilitas', bobot: 25, tipe: 'benefit' as const },
-        { nama: 'Transportasi', bobot: 25, tipe: 'benefit' as const },
-      ];
-      
-      await prisma.criteria.createMany({
-        data: defaultCriterias
-      });
-      
-      criterias = await prisma.criteria.findMany({
-        orderBy: { id: 'asc' }
-      });
-    }
     
     return NextResponse.json({
       success: true,
@@ -32,64 +26,92 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error fetching criterias:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Gagal mengambil data kriteria' 
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      message: 'Gagal memuat data kriteria'
+    }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     
-    // Validasi input
-    const validatedData = criteriaSchema.parse(body);
-    
-    // Update semua kriteria dalam satu transaksi
-    await prisma.$transaction(async (tx) => {
-      for (const criteria of validatedData.criterias) {
-        await tx.criteria.update({
-          where: { id: criteria.id },
-          data: {
-            bobot: criteria.bobot
-          }
-        });
+    // Check if it's bulk update (criterias array) or single create
+    if (body.criterias && Array.isArray(body.criterias)) {
+      // Bulk update for criterias weights
+      const parse = CriteriasUpdateSchema.safeParse(body);
+      if (!parse.success) {
+        return NextResponse.json({
+          success: false,
+          message: 'Data tidak valid',
+          errors: parse.error.errors
+        }, { status: 400 });
       }
-    });
-    
-    const updatedCriterias = await prisma.criteria.findMany({
-      orderBy: { id: 'asc' }
-    });
-    
-    return NextResponse.json({
-      success: true,
-      data: updatedCriterias,
-      message: 'Bobot kriteria berhasil diperbarui'
-    });
-  } catch (error) {
-    console.error('Error updating criterias:', error);
-    
-    if (error instanceof Error && error.name === 'ZodError') {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Data tidak valid', 
-          details: error.message 
-        },
-        { status: 400 }
+
+      // Update all criterias
+      const updatedCriterias = await Promise.all(
+        parse.data.criterias.map(criteria => 
+          prisma.criteria.update({
+            where: { id: criteria.id },
+            data: {
+              nama: criteria.nama,
+              tipe: criteria.tipe,
+              bobot: criteria.bobot
+            }
+          })
+        )
       );
+
+      return NextResponse.json({
+        success: true,
+        message: 'Bobot kriteria berhasil diperbarui',
+        data: updatedCriterias
+      });
+    } else {
+      // Single create
+      const parse = CriteriaSchema.safeParse(body);
+      if (!parse.success) {
+        return NextResponse.json({
+          success: false,
+          message: 'Data tidak valid',
+          errors: parse.error.errors
+        }, { status: 400 });
+      }
+
+      const created = await prisma.criteria.create({
+        data: parse.data
+      });
+
+      // Auto-sync values for existing alternatives
+      try {
+        const alternatives = await prisma.alternative.findMany();
+        
+        if (alternatives.length > 0) {
+          await prisma.alternativeValue.createMany({
+            data: alternatives.map(alt => ({
+              alternativeId: alt.id,
+              criteriaId: created.id,
+              nilai: 0
+            }))
+          });
+        }
+      } catch (syncError) {
+        console.error('Error syncing alternative values:', syncError);
+        // Don't fail the request if sync fails
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Kriteria berhasil ditambahkan',
+        data: created
+      });
     }
-    
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Gagal memperbarui kriteria' 
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('Error in POST criterias:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    }, { status: 500 });
   }
 }
