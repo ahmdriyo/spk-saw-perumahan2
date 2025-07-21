@@ -44,8 +44,10 @@ export default function AlternativesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
-  const [editingAlternative, setEditingAlternative] = useState<Alternative | null>(null);
-  const [deletingAlternative, setDeletingAlternative] = useState<Alternative | null>(null);
+  const [editingAlternative, setEditingAlternative] =
+    useState<Alternative | null>(null);
+  const [deletingAlternative, setDeletingAlternative] =
+    useState<Alternative | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -95,7 +97,7 @@ export default function AlternativesPage() {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedImage(file);
-      
+
       // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -110,11 +112,11 @@ export default function AlternativesPage() {
     try {
       setUploadingImage(true);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
-      const response = await axios.post('/api/upload', formData, {
+      const response = await axios.post("/api/upload", formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
 
@@ -123,8 +125,8 @@ export default function AlternativesPage() {
       }
       return null;
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Gagal mengupload gambar');
+      console.error("Error uploading image:", error);
+      toast.error("Gagal mengupload gambar");
       return null;
     } finally {
       setUploadingImage(false);
@@ -135,24 +137,24 @@ export default function AlternativesPage() {
   const onSubmit = async (data: AlternativeFormData) => {
     try {
       let imageUrl = null;
-      
+
       // Upload image if selected
       if (selectedImage) {
         imageUrl = await uploadImage(selectedImage);
         if (!imageUrl) {
-          toast.error('Gagal mengupload gambar');
+          toast.error("Gagal mengupload gambar");
           return;
         }
       }
 
       // Prepare values array from form data - ensure all criteria have values
       const values: { criteriaId: number; nilai: number }[] = [];
-      
-      criterias.forEach(criteria => {
+
+      criterias.forEach((criteria) => {
         const nilai = data.values?.[criteria.id.toString()] || 0;
         values.push({
           criteriaId: criteria.id,
-          nilai: Number(nilai)
+          nilai: Number(nilai),
         });
       });
 
@@ -160,12 +162,15 @@ export default function AlternativesPage() {
         nama: data.nama,
         lokasi: data.lokasi,
         gambar: imageUrl || data.gambar,
-        values: values
+        values: values,
       };
 
       if (editingAlternative) {
         // Update existing alternative
-        const response = await axios.put(`/api/alternatives/${editingAlternative.id}`, payload);
+        const response = await axios.put(
+          `/api/alternatives/${editingAlternative.id}`,
+          payload
+        );
         if (response.data.success) {
           toast.success(response.data.message);
           handleCloseForm();
@@ -181,9 +186,10 @@ export default function AlternativesPage() {
         }
       }
     } catch (error: unknown) {
-      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
-        ? error.response.data.message
-        : "Gagal menyimpan alternatif";
+      const errorMessage =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "Gagal menyimpan alternatif";
       toast.error(errorMessage);
       console.error("Error saving alternative:", error);
     }
@@ -191,27 +197,30 @@ export default function AlternativesPage() {
 
   // Handle delete
   const handleDelete = async (id: number) => {
-    const alternative = alternatives.find(alt => alt.id === id);
+    const alternative = alternatives.find((alt) => alt.id === id);
     if (!alternative) return;
-    
+
     setDeletingAlternative(alternative);
   };
 
   // Confirm delete
   const confirmDelete = async () => {
     if (!deletingAlternative) return;
-    
+
     try {
-      const response = await axios.delete(`/api/alternatives/${deletingAlternative.id}`);
+      const response = await axios.delete(
+        `/api/alternatives/${deletingAlternative.id}`
+      );
       if (response.data.success) {
         toast.success(response.data.message);
         fetchAlternatives();
         setDeletingAlternative(null);
       }
     } catch (error: unknown) {
-      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
-        ? error.response.data.message
-        : "Gagal menghapus alternatif";
+      const errorMessage =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "Gagal menghapus alternatif";
       toast.error(errorMessage);
       console.error("Error deleting alternative:", error);
     }
@@ -220,31 +229,31 @@ export default function AlternativesPage() {
   // Handle edit
   const handleEdit = (alternative: Alternative) => {
     setEditingAlternative(alternative);
-    
+
     // Set form values - make sure all criteria have values
     const valuesMap: Record<string, number> = {};
-    
+
     // Initialize all criteria with 0 first
-    criterias.forEach(criteria => {
+    criterias.forEach((criteria) => {
       valuesMap[criteria.id.toString()] = 0;
     });
-    
+
     // Then set existing values
-    alternative.values.forEach(value => {
+    alternative.values.forEach((value) => {
       valuesMap[value.criteriaId.toString()] = value.nilai;
     });
-    
+
     reset({
       nama: alternative.nama,
       lokasi: alternative.lokasi,
       gambar: alternative.gambar,
-      values: valuesMap
+      values: valuesMap,
     });
-    
+
     if (alternative.gambar) {
       setImagePreview(alternative.gambar);
     }
-    
+
     setShowForm(true);
   };
 
@@ -252,17 +261,17 @@ export default function AlternativesPage() {
   const handleCreate = () => {
     setEditingAlternative(null);
     const emptyValues: { [key: number]: number } = {};
-    criterias.forEach(criteria => {
+    criterias.forEach((criteria) => {
       emptyValues[criteria.id] = 0;
     });
-    
+
     reset({
       nama: "",
       lokasi: "",
       gambar: "",
-      values: emptyValues
+      values: emptyValues,
     });
-    
+
     setSelectedImage(null);
     setImagePreview(null);
     setShowForm(true);
@@ -298,7 +307,8 @@ export default function AlternativesPage() {
               Input Alternatif
             </h1>
             <p className="text-white/80">
-              Tambahkan data alternatif dengan nilai kriteria yang akan dievaluasi
+              Tambahkan data alternatif dengan nilai kriteria yang akan
+              dievaluasi
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -306,12 +316,16 @@ export default function AlternativesPage() {
               onClick={() => setShowUpload(true)}
               className="btn-secondary"
             >
-              <Upload className="w-5 h-5 mr-2" />
-              Upload File
+              <div className="flex items-center">
+                <Upload className="w-5 h-5 mr-2" />
+                Upload File
+              </div>
             </button>
             <button onClick={handleCreate} className="btn-primary">
-              <Plus className="w-5 h-5 mr-2" />
-              Tambah Manual
+              <div className="flex items-center">
+                <Plus className="w-5 h-5 mr-2" />
+                Tambah Manual
+              </div>
             </button>
           </div>
         </div>
@@ -323,7 +337,9 @@ export default function AlternativesPage() {
           <div className="glass-card p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">
-                {editingAlternative ? "Edit Alternatif" : "Tambah Alternatif Baru"}
+                {editingAlternative
+                  ? "Edit Alternatif"
+                  : "Tambah Alternatif Baru"}
               </h2>
               <button
                 onClick={handleCloseForm}
@@ -440,12 +456,11 @@ export default function AlternativesPage() {
                   disabled={isSubmitting || uploadingImage}
                   className="btn-primary disabled:opacity-50"
                 >
-                  {uploadingImage 
-                    ? "Mengupload gambar..." 
-                    : isSubmitting 
-                    ? "Menyimpan..." 
-                    : "Simpan Alternatif"
-                  }
+                  {uploadingImage
+                    ? "Mengupload gambar..."
+                    : isSubmitting
+                    ? "Menyimpan..."
+                    : "Simpan Alternatif"}
                 </button>
                 <button
                   type="button"
@@ -481,7 +496,7 @@ export default function AlternativesPage() {
               </button>
             </div>
 
-            <FileUpload 
+            <FileUpload
               onUploadComplete={() => {
                 setShowUpload(false);
                 fetchAlternatives();
@@ -519,7 +534,10 @@ export default function AlternativesPage() {
                     Lokasi
                   </th>
                   {criterias.map((criteria) => (
-                    <th key={criteria.id} className="text-left text-white font-semibold py-3 px-2">
+                    <th
+                      key={criteria.id}
+                      className="text-left text-white font-semibold py-3 px-2"
+                    >
                       {criteria.nama}
                     </th>
                   ))}
@@ -559,9 +577,14 @@ export default function AlternativesPage() {
                       </div>
                     </td>
                     {criterias.map((criteria) => {
-                      const value = alt.values.find(v => v.criteriaId === criteria.id);
+                      const value = alt.values.find(
+                        (v) => v.criteriaId === criteria.id
+                      );
                       return (
-                        <td key={criteria.id} className="py-4 px-2 text-white/80">
+                        <td
+                          key={criteria.id}
+                          className="py-4 px-2 text-white/80"
+                        >
                           {value ? (
                             <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-sm">
                               {value.nilai}
