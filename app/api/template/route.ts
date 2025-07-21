@@ -1,37 +1,79 @@
 import { NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // Template data
+    // Get current criterias
+    const criterias = await prisma.criteria.findMany({
+      orderBy: { id: 'asc' }
+    });
+
+    // Build dynamic template headers
+    const headers: Record<string, unknown> = {
+      'Nama Perumahan': 'Perumahan Griya Indah',
+      'Lokasi': 'Bandung, Jawa Barat',
+    };
+
+    // Add criteria columns
+    criterias.forEach(criteria => {
+      headers[criteria.nama] = criteria.tipe === 'cost' ? 500000000 : 8; // Example values
+    });
+
+    headers['Gambar'] = 'https://example.com/rumah1.jpg';
+
+    // Create multiple example rows
     const templateData = [
-      {
-        'Nama Perumahan': 'Perumahan Griya Indah',
-        'Lokasi': 'Bandung, Jawa Barat',
-        'Harga': 500000000,
-        'Jarak': 5.2,
-        'Fasilitas': 8,
-        'Transportasi': 7,
-        'Gambar': 'https://example.com/rumah1.jpg'
-      },
-      {
-        'Nama Perumahan': 'Villa Harmoni',
-        'Lokasi': 'Jakarta Selatan',
-        'Harga': 750000000,
-        'Jarak': 8.5,
-        'Fasilitas': 9,
-        'Transportasi': 8,
-        'Gambar': 'https://example.com/rumah2.jpg'
-      },
-      {
-        'Nama Perumahan': 'Cluster Mewah',
-        'Lokasi': 'Surabaya, Jawa Timur',
-        'Harga': 650000000,
-        'Jarak': 3.1,
-        'Fasilitas': 7,
-        'Transportasi': 9,
-        'Gambar': '/uploads/rumah3.jpg'
-      }
+      // Row 1
+      (() => {
+        const row: Record<string, unknown> = {
+          'Nama Perumahan': 'Perumahan Griya Indah',
+          'Lokasi': 'Bandung, Jawa Barat',
+        };
+        criterias.forEach((criteria, index) => {
+          if (criteria.tipe === 'cost') {
+            row[criteria.nama] = [500000000, 750000000, 350000000][index % 3];
+          } else {
+            row[criteria.nama] = [8, 9, 7][index % 3];
+          }
+        });
+        row['Gambar'] = 'https://example.com/rumah1.jpg';
+        return row;
+      })(),
+      
+      // Row 2
+      (() => {
+        const row: Record<string, unknown> = {
+          'Nama Perumahan': 'Villa Harmoni',
+          'Lokasi': 'Jakarta Selatan',
+        };
+        criterias.forEach((criteria, index) => {
+          if (criteria.tipe === 'cost') {
+            row[criteria.nama] = [750000000, 350000000, 500000000][index % 3];
+          } else {
+            row[criteria.nama] = [9, 7, 8][index % 3];
+          }
+        });
+        row['Gambar'] = 'https://example.com/rumah2.jpg';
+        return row;
+      })(),
+      
+      // Row 3
+      (() => {
+        const row: Record<string, unknown> = {
+          'Nama Perumahan': 'Cluster Mewah',
+          'Lokasi': 'Surabaya, Jawa Timur',
+        };
+        criterias.forEach((criteria, index) => {
+          if (criteria.tipe === 'cost') {
+            row[criteria.nama] = [350000000, 500000000, 750000000][index % 3];
+          } else {
+            row[criteria.nama] = [7, 8, 9][index % 3];
+          }
+        });
+        row['Gambar'] = '/uploads/rumah3.jpg';
+        return row;
+      })()
     ];
 
     // Create workbook
@@ -39,16 +81,19 @@ export async function GET() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Data Perumahan');
 
-    // Set column widths
+    // Set column widths dynamically
     const wscols = [
       { wch: 25 }, // Nama Perumahan
       { wch: 25 }, // Lokasi
-      { wch: 15 }, // Harga
-      { wch: 10 }, // Jarak
-      { wch: 12 }, // Fasilitas
-      { wch: 15 }, // Transportasi
-      { wch: 30 }, // Gambar
     ];
+    
+    // Add column widths for criteria
+    criterias.forEach(() => {
+      wscols.push({ wch: 15 });
+    });
+    
+    wscols.push({ wch: 30 }); // Gambar
+    
     ws['!cols'] = wscols;
 
     // Generate buffer

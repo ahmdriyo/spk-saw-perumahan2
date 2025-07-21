@@ -83,6 +83,24 @@ export async function POST(req: NextRequest) {
         data: parse.data
       });
 
+      // Auto-sync values for existing alternatives
+      try {
+        const alternatives = await prisma.alternative.findMany();
+        
+        if (alternatives.length > 0) {
+          await prisma.alternativeValue.createMany({
+            data: alternatives.map(alt => ({
+              alternativeId: alt.id,
+              criteriaId: created.id,
+              nilai: 0
+            }))
+          });
+        }
+      } catch (syncError) {
+        console.error('Error syncing alternative values:', syncError);
+        // Don't fail the request if sync fails
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Kriteria berhasil ditambahkan',

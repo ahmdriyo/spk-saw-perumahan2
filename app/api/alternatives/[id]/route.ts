@@ -10,7 +10,7 @@ const ValueSchema = z.object({
 const AlternativeSchema = z.object({
   nama: z.string().min(1, 'Nama alternatif harus diisi'),
   lokasi: z.string().min(1, 'Lokasi harus diisi'),
-  gambar: z.string().optional(),
+  gambar: z.string().nullable().optional(),
   values: z.array(ValueSchema).optional(),
 });
 
@@ -66,9 +66,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const body = await req.json();
+    console.log('Received body:', JSON.stringify(body, null, 2));
+    
     const parse = AlternativeSchema.safeParse(body);
     
     if (!parse.success) {
+      console.log('Validation errors:', parse.error.errors);
       return NextResponse.json({
         success: false,
         message: 'Data tidak valid',
@@ -88,19 +91,33 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
       // Update values if provided
       if (values && values.length > 0) {
-        // Delete existing values
+        // Delete existing values for this alternative
         await tx.alternativeValue.deleteMany({
           where: { alternativeId: id }
         });
         
-        // Create new values
-        await tx.alternativeValue.createMany({
-          data: values.map(v => ({
-            alternativeId: id,
-            criteriaId: v.criteriaId,
-            nilai: v.nilai
-          }))
-        });
+        // Create new values - filter out any invalid criteria
+        const validValues = [];
+        for (const value of values) {
+          // Check if criteria exists
+          const criteriaExists = await tx.criteria.findUnique({
+            where: { id: value.criteriaId }
+          });
+          
+          if (criteriaExists) {
+            validValues.push({
+              alternativeId: id,
+              criteriaId: value.criteriaId,
+              nilai: value.nilai
+            });
+          }
+        }
+        
+        if (validValues.length > 0) {
+          await tx.alternativeValue.createMany({
+            data: validValues
+          });
+        }
       }
 
       // Return updated alternative with values

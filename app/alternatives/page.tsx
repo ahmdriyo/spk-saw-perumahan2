@@ -144,17 +144,22 @@ export default function AlternativesPage() {
         }
       }
 
-      // Prepare values array from form data
-      const values = Object.entries(data.values || {}).map(([criteriaId, nilai]) => ({
-        criteriaId: Number(criteriaId),
-        nilai: Number(nilai)
-      }));
+      // Prepare values array from form data - ensure all criteria have values
+      const values: { criteriaId: number; nilai: number }[] = [];
+      
+      criterias.forEach(criteria => {
+        const nilai = data.values?.[criteria.id.toString()] || 0;
+        values.push({
+          criteriaId: criteria.id,
+          nilai: Number(nilai)
+        });
+      });
 
       const payload = {
         nama: data.nama,
         lokasi: data.lokasi,
         gambar: imageUrl || data.gambar,
-        values: values.length > 0 ? values : undefined
+        values: values
       };
 
       if (editingAlternative) {
@@ -215,8 +220,15 @@ export default function AlternativesPage() {
   const handleEdit = (alternative: Alternative) => {
     setEditingAlternative(alternative);
     
-    // Set form values
+    // Set form values - make sure all criteria have values
     const valuesMap: Record<string, number> = {};
+    
+    // Initialize all criteria with 0 first
+    criterias.forEach(criteria => {
+      valuesMap[criteria.id.toString()] = 0;
+    });
+    
+    // Then set existing values
     alternative.values.forEach(value => {
       valuesMap[value.criteriaId.toString()] = value.nilai;
     });
