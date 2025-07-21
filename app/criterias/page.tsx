@@ -29,7 +29,9 @@ export default function CriteriasPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCriteria, setEditingCriteria] = useState<Criteria | null>(null);
-  const [deletingCriteria, setDeletingCriteria] = useState<Criteria | null>(null);
+  const [deletingCriteria, setDeletingCriteria] = useState<Criteria | null>(
+    null
+  );
 
   const {
     register,
@@ -93,7 +95,10 @@ export default function CriteriasPage() {
     try {
       if (editingCriteria) {
         // Update existing criteria
-        const response = await axios.put(`/api/criteria/${editingCriteria.id}`, data);
+        const response = await axios.put(
+          `/api/criteria/${editingCriteria.id}`,
+          data
+        );
         if (response.data.success) {
           toast.success(response.data.message);
           fetchCriterias();
@@ -112,9 +117,10 @@ export default function CriteriasPage() {
         }
       }
     } catch (error: unknown) {
-      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
-        ? error.response.data.message
-        : "Gagal menyimpan kriteria";
+      const errorMessage =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "Gagal menyimpan kriteria";
       toast.error(errorMessage);
       console.error("Error saving criteria:", error);
     }
@@ -130,9 +136,10 @@ export default function CriteriasPage() {
         setDeletingCriteria(null);
       }
     } catch (error: unknown) {
-      const errorMessage = axios.isAxiosError(error) && error.response?.data?.message
-        ? error.response.data.message
-        : "Gagal menghapus kriteria";
+      const errorMessage =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "Gagal menghapus kriteria";
       toast.error(errorMessage);
       console.error("Error deleting criteria:", error);
     }
@@ -189,12 +196,11 @@ export default function CriteriasPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={handleCreate}
-              className="btn-primary"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Tambah Kriteria
+            <button onClick={handleCreate} className="btn-primary">
+              <div className="flex items-center justify-center">
+                <Plus className="w-5 h-5 mr-2" />
+                Tambah Kriteria
+              </div>
             </button>
             {criterias.length > 0 && (
               <CriteriaPrintButton criterias={criterias} />
@@ -383,7 +389,9 @@ export default function CriteriasPage() {
               >
                 <div className="flex items-center justify-center">
                   <Save className="w-5 h-5 mr-2" />
-                  <span>{isSubmitting ? "Menyimpan..." : "Simpan Bobot Kriteria"}</span>
+                  <span>
+                    {isSubmitting ? "Menyimpan..." : "Simpan Bobot Kriteria"}
+                  </span>
                 </div>
               </button>
             </div>
@@ -404,13 +412,11 @@ export default function CriteriasPage() {
               Belum Ada Kriteria
             </h3>
             <p className="text-white/80">
-              Mulai dengan menambahkan kriteria pertama untuk sistem pengambilan keputusan Anda.
+              Mulai dengan menambahkan kriteria pertama untuk sistem pengambilan
+              keputusan Anda.
             </p>
           </div>
-          <button
-            onClick={handleCreate}
-            className="btn-primary"
-          >
+          <button onClick={handleCreate} className="btn-primary">
             <Plus className="w-5 h-5 mr-2" />
             Tambah Kriteria Pertama
           </button>
@@ -434,7 +440,7 @@ export default function CriteriasPage() {
           </div>
         </div>
       )}
-      
+
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -455,7 +461,10 @@ export default function CriteriasPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitModal(onSubmitModal)} className="space-y-4">
+            <form
+              onSubmit={handleSubmitModal(onSubmitModal)}
+              className="space-y-4"
+            >
               <div>
                 <label className="block text-white/80 text-sm mb-2">
                   Nama Kriteria
@@ -485,8 +494,12 @@ export default function CriteriasPage() {
                   })}
                   className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="benefit">Benefit (Semakin tinggi semakin baik)</option>
-                  <option value="cost">Cost (Semakin rendah semakin baik)</option>
+                  <option value="benefit">
+                    Benefit (Semakin tinggi semakin baik)
+                  </option>
+                  <option value="cost">
+                    Cost (Semakin rendah semakin baik)
+                  </option>
                 </select>
                 {errorsModal.tipe && (
                   <p className="text-red-300 text-sm mt-1">
@@ -572,7 +585,8 @@ export default function CriteriasPage() {
                   {deletingCriteria.nama}
                 </p>
                 <p className="text-red-300/80 text-sm">
-                  Tipe: {deletingCriteria.tipe} | Bobot: {deletingCriteria.bobot}%
+                  Tipe: {deletingCriteria.tipe} | Bobot:{" "}
+                  {deletingCriteria.bobot}%
                 </p>
               </div>
               <p className="text-yellow-300 text-sm mt-2">
