@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import axios from "axios";
 import Image from "next/image";
+import FileUpload from "@/components/FileUpload";
 
 interface Criteria {
   id: number;
@@ -474,17 +475,19 @@ export default function AlternativesPage() {
               </h2>
               <button
                 onClick={() => setShowUpload(false)}
-                className="btn-secondary"
+                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
               >
-                Tutup
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="text-center py-8">
-              <Upload className="w-16 h-16 text-white/40 mx-auto mb-4" />
-              <p className="text-white/60">Fitur import Excel/CSV untuk alternatif</p>
-              <p className="text-white/40 text-sm">Akan tersedia dalam update mendatang</p>
-            </div>
+            <FileUpload 
+              onUploadComplete={() => {
+                setShowUpload(false);
+                fetchAlternatives();
+              }}
+              className="text-gray-900"
+            />
           </div>
         </div>
       )}

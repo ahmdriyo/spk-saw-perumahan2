@@ -20,7 +20,6 @@ export async function GET() {
       headers[criteria.nama] = criteria.tipe === 'cost' ? 500000000 : 8; // Example values
     });
 
-    headers['Gambar'] = 'https://example.com/rumah1.jpg';
 
     // Create multiple example rows
     const templateData = [
@@ -37,7 +36,6 @@ export async function GET() {
             row[criteria.nama] = [8, 9, 7][index % 3];
           }
         });
-        row['Gambar'] = 'https://example.com/rumah1.jpg';
         return row;
       })(),
       
@@ -54,7 +52,6 @@ export async function GET() {
             row[criteria.nama] = [9, 7, 8][index % 3];
           }
         });
-        row['Gambar'] = 'https://example.com/rumah2.jpg';
         return row;
       })(),
       
@@ -71,7 +68,6 @@ export async function GET() {
             row[criteria.nama] = [7, 8, 9][index % 3];
           }
         });
-        row['Gambar'] = '/uploads/rumah3.jpg';
         return row;
       })()
     ];

@@ -1,33 +1,65 @@
-# 📄 Fitur Cetak Laporan - SPK Perumahan SAW
+# 📄 Fitur Import Excel/CSV & Cetak Laporan - SPK Perumahan SAW
 
-## ✨ Fitur Baru: Cetak Laporan PDF
+## ✨ Update Terbaru: Fitur Import Data Alternatif
 
-Kami telah menambahkan fitur cetak laporan yang komprehensif untuk Sistem Pendukung Keputusan (SPK) Pemilihan Perumahan dengan metode SAW. Fitur ini memungkinkan pengguna untuk mencetak dan mengunduh laporan hasil perhitungan dalam format PDF yang profesional.
+Kami telah berhasil memperbaiki dan mengimplementasikan fitur import data alternatif menggunakan file Excel (.xlsx, .xls) atau CSV (.csv). Fitur ini memungkinkan pengguna untuk mengunggah data perumahan secara massal dengan mudah dan efisien.
 
-## 🎯 Fitur yang Ditambahkan
+## 🚀 Fitur Import Yang Diperbaiki
 
-### 1. **Generator Laporan PDF Otomatis**
-- **File**: `lib/report-generator.ts`
-- **Class**: `ReportGenerator`
-- **Fungsi**: Membuat laporan PDF dengan layout profesional
-- **Dependencies**: `jspdf`, `jspdf-autotable`
+### 1. **Import Excel/CSV untuk Alternatif**
+- **File API**: `app/api/import/alternatives/route.ts`
+- **Support Format**: Excel (.xlsx, .xls) dan CSV (.csv)
+- **Ukuran Max**: 5MB per file
+- **Validasi**: Otomatis validasi data sesuai struktur database
 
-### 2. **Komponen Tombol Laporan**
-- **File**: `components/ReportButtons.tsx`
+### 2. **Komponen FileUpload**
+- **File**: `components/FileUpload.tsx`
 - **Fitur**: 
-  - Tombol Download PDF
-  - Tombol Cetak Langsung
-  - Loading state saat generate
-  - Error handling
+  - Drag & Drop interface
+  - Progress indicator
+  - Error handling dengan detail
+  - Template download (Excel & CSV)
+  - Validasi format file
 
-### 3. **API Endpoint Laporan**
-- **Route**: `/api/report/generate`
-- **Method**: POST
-- **Fungsi**: Generate PDF dari server dan download
+### 3. **Template Dinamis**
+- **Excel Template**: `/api/template` - Generate template berdasarkan kriteria aktif
+- **CSV Contoh**: `/api/template/csv` - File contoh dengan data sample
+- **Struktur Dinamis**: Menyesuaikan dengan kriteria yang sudah dibuat
 
-## 📊 Isi Laporan PDF
+### 4. **Error Handling & Feedback**
+- **Validasi Detail**: Error per baris dengan pesan spesifik
+- **Toast Notifications**: Feedback real-time untuk user
+- **Data Preview**: Menampilkan data yang berhasil divalidasi
+- **Batch Processing**: Import data dalam transaction untuk konsistensi
 
-Laporan yang dihasilkan mengandung:
+## 📋 Format File Import
+
+### Kolom Wajib:
+1. **Nama Perumahan** - Nama perumahan (text)
+2. **Lokasi** - Alamat/lokasi perumahan (text)
+3. **[Nama Kriteria]** - Sesuai kriteria yang dibuat di sistem
+4. **Gambar** - URL gambar (optional)
+
+### Contoh Struktur:
+```csv
+Nama Perumahan,Lokasi,Harga,Jarak,Fasilitas,Transportasi,Gambar
+Perumahan Griya Indah,Bandung Jawa Barat,500000000,5.2,8,7
+Villa Harmoni,Jakarta Selatan,750000000,8.5,9,8,
+```
+
+## 🔧 Teknologi & Dependencies
+
+### Packages Used:
+- **xlsx**: ^0.18.5 - Excel file processing
+- **zod**: ^3.25.72 - Data validation
+- **prisma**: Database ORM dengan transaction
+- **multer**: File upload handling
+
+### API Features:
+- **Dynamic Column Mapping**: Otomatis map kolom dengan kriteria
+- **Data Normalization**: Convert format data ke struktur database
+- **Transaction Safety**: Rollback jika ada error
+- **Batch Insert**: Efficient bulk data insertion
 
 ### 1. **Header Laporan**
 - Logo/Judul sistem
